@@ -1,0 +1,45 @@
+{
+  "project_id": "p_demo_calc",
+  "name": "Sample Calculator Service",
+  "meta": {
+    "prd_path": "examples/sample_project/prd.md"
+  },
+  "tasks": [
+    {
+      "id": "T001",
+      "title": "implement sample_app package with tests",
+      "description": "Create the package, the calculator module and its unit tests. First attempt is seeded with a defect the verifier must catch.",
+      "dependencies": [],
+      "acceptance": [
+        "sample_app/calc.py exists",
+        "add/sub/mul/div are defined",
+        "div raises ZeroDivisionError on 0",
+        "all unit tests pass"
+      ],
+      "files": [
+        "sample_app/__init__.py",
+        "sample_app/calc.py",
+        "tests/test_calc.py"
+      ],
+      "meta": {
+        "target": "all"
+      }
+    },
+    {
+      "id": "T002",
+      "title": "harden test suite (regression guard)",
+      "description": "Reassert the test suite on top of the merged main; acts as an integration gate.",
+      "dependencies": ["T001"],
+      "acceptance": [
+        "tests cover all four operations",
+        "zero-division raises"
+      ],
+      "files": [
+        "tests/test_calc.py"
+      ],
+      "meta": {
+        "target": "tests"
+      }
+    }
+  ]
+}

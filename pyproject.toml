@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autonomous-factory"
+version = "0.1.0"
+description = "Autonomous Software Venture Factory - V1 core: task-graph driven coding factory with independent verification"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "pydantic>=2.5",
+    "pydantic-settings>=2.2",
+    "typer>=0.12",
+    "PyYAML>=6.0",
+    "psycopg2-binary>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+]
+llm = [
+    "openai>=1.30",
+]
+
+[project.scripts]
+factory = "factory.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["factory*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+# --- lint baseline -------------------------------------------------------
+# Reproducible ruff config: default stable rule family (E4/E7/E9/F) plus
+# isort. Line length is relaxed on purpose (docstrings/CLI text), verified
+# green with: ruff check factory tests
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
