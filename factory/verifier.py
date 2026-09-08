@@ -96,10 +96,23 @@ def _test_files(workdir: Path) -> list[Path]:
 
 
 def gate_lint(workdir: Path, _v: "Verifier") -> GateResult:
-    for tool in ("ruff", "flake8"):
-        if _tool_exists(tool):
-            code, out = _run([tool, "check", "."], workdir)
-            return GateResult("lint", code == 0, out)
+    if _tool_exists("ruff"):
+        # --isolated --no-cache: a DETERMINISTIC verification gate. Without
+        # --isolated, ruff walks up from the worktree to find a pyproject /
+        # ruff config; a worktree under the project root inherits the host
+        # project's isort settings while one outside it falls back to the
+        # defaults - two different lint semantics for identical bytes, so a
+        # task that passes in a scratch dir can fail under the real runtime
+        # and vice versa. --isolated pins ONE semantics everywhere, and
+        # --no-cache prevents stale on-disk cache verdicts from flipping
+        # green/red across runs. Verdicts must depend only on the code.
+        code, out = _run(
+            ["ruff", "check", "--isolated", "--no-cache", "."], workdir
+        )
+        return GateResult("lint", code == 0, out)
+    if _tool_exists("flake8"):
+        code, out = _run(["flake8", "--isolated", "."], workdir)
+        return GateResult("lint", code == 0, out)
     return GateResult("lint", True, "lint tool not installed; skipped", skipped=True)
 
 

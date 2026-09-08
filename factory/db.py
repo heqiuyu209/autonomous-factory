@@ -62,11 +62,42 @@ def get_sessionmaker() -> sessionmaker:
 
 
 def init_db(create_all: bool = True) -> None:
-    """Create tables if they don't exist."""
+    """Create tables if they don't exist, then apply idempotent schema
+    upgrades so a DB created by an earlier build keeps working."""
     from . import models  # noqa: F401  (register models)
 
     if create_all:
         Base.metadata.create_all(get_engine())
+    _ensure_schema(get_engine())
+
+
+# Tracks columns introduced after the initial schema. A database created by
+# an older build lacks them; without an upgrade path a fresh `factory run`
+# against such a DB dies with a bare OperationalError. These migrations are
+# deliberately inline + idempotent: check existence, then ADD COLUMN.
+# Only safe nullable/defaulted additions belong here - no drops, no renames,
+# no data rewrites. (V1 ships this as the engineered upgrade path.)
+_ADD_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("budget_ledger", "cost_runtime_s", "FLOAT DEFAULT 0"),
+    ("budget_accounts", "spent_tokens", "FLOAT DEFAULT 0"),
+    ("budget_accounts", "spent_usd", "FLOAT DEFAULT 0"),
+)
+
+
+def _ensure_schema(engine) -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing = {
+        t: {c["name"] for c in inspector.get_columns(t)}
+        for t in inspector.get_table_names()
+    }
+    with engine.begin() as conn:
+        for table, column, ddl in _ADD_COLUMNS:
+            if table not in existing or column in existing[table]:
+                continue
+            conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}'))
+
 
 
 def session_scope():

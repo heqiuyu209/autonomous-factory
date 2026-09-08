@@ -53,11 +53,15 @@ class Settings:
 
     # --- verification pipeline ------------------------------------------
     # Comma separated gates, run in order (blueprint §11).
+    # lint participates by default: it only costs time when the linter is
+    # actually installed (auto-skipped otherwise) and it catches the class
+    # of mistakes the syntax gate cannot (unused imports, undefined names,
+    # import-order drift) before any code is merged to main.
     verify_gates: tuple[str, ...] = field(
         default_factory=lambda: tuple(
             g.strip()
             for g in os.getenv(
-                "FACTORY_VERIFY_GATES", "syntax,test"
+                "FACTORY_VERIFY_GATES", "syntax,test,lint"
             ).split(",")
             if g.strip()
         )

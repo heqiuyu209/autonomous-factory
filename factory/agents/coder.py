@@ -47,7 +47,7 @@ def div(a: float, b: float) -> float:
 COMPANY_TESTS = """\
 import pytest
 
-from sample_app.calc import add, sub, mul, div
+from sample_app.calc import add, div, mul, sub
 
 
 def test_add():
