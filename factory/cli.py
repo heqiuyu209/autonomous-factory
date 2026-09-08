@@ -16,6 +16,7 @@ import typer
 from .db import init_db
 from .policy import PolicyEngine
 from .schemas.task_graph import TaskGraph
+from .state_machine import StateMachineError
 from .workflows import DevelopmentWorkflow
 
 app = typer.Typer(help="Autonomous Software Factory - V1 core.")
@@ -67,6 +68,21 @@ def demo() -> None:
         typer.echo(f"sample project not found at {_DEMO_DIR}")
         raise typer.Exit(1)
     run(graph_path, prd=prd_path)
+
+
+@app.command("promote")
+def promote_cmd(project_id: str) -> None:
+    """Promote a fully-built, fully-reviewed project to PRODUCTION."""
+    from json import dumps
+
+    try:
+        res = DevelopmentWorkflow().promote(project_id)
+    except StateMachineError as exc:
+        typer.echo(f"promote refused: {exc}")
+        raise typer.Exit(1) from None
+    typer.echo(dumps(res, indent=2, ensure_ascii=False))
+    if not res.get("exists"):
+        raise typer.Exit(1)
 
 
 @app.command()

@@ -42,6 +42,14 @@ class Settings:
             os.getenv("FACTORY_RUNTIME_BUDGET_S", "1800")
         )
     )
+    # No single coder attempt may run longer than this wall-clock ceiling,
+    # regardless of the total per-task runtime budget. A hung LLM call must
+    # be reclaimed as a failed attempt, never stall the whole build.
+    attempt_timeout_s: int = field(
+        default_factory=lambda: int(
+            os.getenv("FACTORY_ATTEMPT_TIMEOUT_S", "300")
+        )
+    )
 
     # --- verification pipeline ------------------------------------------
     # Comma separated gates, run in order (blueprint §11).

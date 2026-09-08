@@ -54,3 +54,23 @@ def safe_join(base: Path, rel: str, *, field: str = "file") -> Path:
             f"unsafe {field} path {rel!r}: escapes base directory"
         ) from None
     return joined
+
+
+def ensure_safe_rel(value: str, *, field: str = "path") -> str:
+    """Validate a *relative* reference recorded as metadata (PRD path etc).
+
+    Unlike :func:`safe_join` this never touches the filesystem and does not
+    require the target to exist - it only rejects absolute paths, drive
+    letters and any '.' / '..' traversal segment. Used to audit untrusted
+    metadata (task graph meta) before it is persisted.
+    """
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"unsafe {field} path {value!r}: must be non-empty")
+    if value.startswith(("/", "\\")) or (len(value) > 1 and value[1] == ":"):
+        raise ValueError(f"unsafe {field} path {value!r}: must be relative")
+    parts = Path(value).parts
+    if ".." in parts or "." in parts:
+        raise ValueError(
+            f"unsafe {field} path {value!r}: cannot contain '.'/'..' segments"
+        )
+    return value

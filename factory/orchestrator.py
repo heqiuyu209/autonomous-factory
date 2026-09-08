@@ -23,6 +23,7 @@ from .agents import AgentInput, AgentRegistry, CoderAgent, RecipeBackend
 from .budget import BudgetExceeded, BudgetTracker
 from .config import settings
 from .db import init_db, session_scope
+from .execution import CoderTimeout, run_with_timeout
 from .models import (
     BudgetAccount,
     BudgetLedger,
@@ -32,7 +33,7 @@ from .models import (
     TaskRecord,
 )
 from .policy import PolicyEngine, PolicyViolation
-from .safety import ensure_safe_id, safe_join
+from .safety import ensure_safe_id, ensure_safe_rel, safe_join
 from .schemas.task_graph import TaskDef, TaskGraph
 from .state_machine import (
     ProjectState,
@@ -68,7 +69,7 @@ class FactoryOrchestrator:
         workspace_root: Path | None = None,
     ):
         self.registry = registry or AgentRegistry.default()
-        self.verifier = verifier or Verifier()
+        self.verifier = verifier or Verifier(gates=settings.verify_gates)
         self.policy = policy or PolicyEngine()
         self.machine = machine or StateMachine(_PolicyGate(self.policy))
         self.workspace = workspace_root or settings.workspace_root
@@ -90,6 +91,11 @@ class FactoryOrchestrator:
         init_db()
         ensure_safe_id(project_id, field="project id")
         max_retries = max_retries or settings.max_coder_retries
+        # Untrusted metadata audit: a PRD path persisted from the task graph
+        # must be a relative, traversal-free reference - never an arbitrary
+        # absolute path injected by a third-party graph.
+        if prd_path is not None:
+            ensure_safe_rel(prd_path, field="prd_path")
         project_root = self.workspace / project_id
         (project_root / "main").mkdir(parents=True, exist_ok=True)
 
@@ -331,8 +337,54 @@ class FactoryOrchestrator:
                 )
                 # policy enforcement happens at the boundary
                 self.policy.check_filesystem("coder", str(worktree), str(worktree))
+                # Account must exist before the first attempt: the timeout
+                # branch writes the ledger too, so it can never reference an
+                # account created only on the success path.
+                account_id = self._ensure_budget_account(session, project_id)
                 attempt_start = time.monotonic()
-                last_output = coder.run(inp)
+                try:
+                    last_output = run_with_timeout(
+                        lambda: coder.run(inp),
+                        min(
+                            budget.remaining_runtime_s,
+                            float(settings.attempt_timeout_s),
+                        ),
+                    )
+                except CoderTimeout:
+                    # A hung attempt is a wall-clock budget event, not a code
+                    # defect: reclaim it, charge what it burned, and let the
+                    # repair loop decide - retry under a fresh allowance or
+                    # BLOCK once retries are exhausted.
+                    elapsed_s = time.monotonic() - attempt_start
+                    budget.charge_runtime(
+                        elapsed_s, agent="coder", note=f"attempt {attempt} TIMEOUT"
+                    )
+                    self._write_ledger(
+                        session,
+                        account_id,
+                        ref=f"{tdef.id}#{attempt}-timeout",
+                        runtime_s=round(elapsed_s, 3),
+                        agent="coder",
+                        note=f"attempt {attempt} timed out",
+                    )
+                    if attempt < max_retries:
+                        self._reset_worktree(main_dir, worktree)
+                        coder = self._maybe_strip_seed(coder)
+                        # IN_PROGRESS cannot self-loop: bounce through READY
+                        # to re-queue this attempt under a fresh allowance.
+                        _set_task_state(TaskState.READY)
+                        _set_task_state(TaskState.IN_PROGRESS)
+                        result["repair_count"] += 1
+                        session.flush()
+                        continue
+                    _set_task_state(TaskState.BLOCKED)
+                    session.flush()
+                    result["verdict"] = "BLOCKED"
+                    result["reason"] = (
+                        f"coder attempt {attempt} timed out after "
+                        f"{elapsed_s:.1f}s (runtime budget exhausted)"
+                    )
+                    return result
                 elapsed_s = time.monotonic() - attempt_start
                 budget.charge(
                     tokens=len(last_output.summary),
@@ -348,7 +400,6 @@ class FactoryOrchestrator:
                 # Durable audit trail: mirror every charge into the ledger
                 # so spend survives restarts (BudgetLedger, not just the
                 # in-memory tracker).
-                account_id = self._ensure_budget_account(session, project_id)
                 self._write_ledger(
                     session,
                     account_id,
@@ -376,11 +427,8 @@ class FactoryOrchestrator:
                     session.flush()
                     # drop the buggy tree and let the coder repair cleanly
                     if attempt < max_retries:
-                        shutil.rmtree(worktree, ignore_errors=True)
-                        worktree.mkdir(parents=True, exist_ok=True)
-                        self._snapshot_main(main_dir, worktree)
-                        if isinstance(coder.backend, RecipeBackend):
-                            coder = CoderAgent(backend=RecipeBackend(inject_bug=False))
+                        self._reset_worktree(main_dir, worktree)
+                        coder = self._maybe_strip_seed(coder)
                         result["repair_count"] += 1
                         _set_task_state(TaskState.IN_PROGRESS)
                         session.flush()
@@ -411,13 +459,8 @@ class FactoryOrchestrator:
                     _set_task_state(TaskState.REVIEW_REJECTED)
                     session.flush()
                     if attempt < max_retries:
-                        shutil.rmtree(worktree, ignore_errors=True)
-                        worktree.mkdir(parents=True, exist_ok=True)
-                        self._snapshot_main(main_dir, worktree)
-                        # Keep the agent's backend type: only strip an injected
-                        # demo bug; never swap a configured LLM for the recipe.
-                        if isinstance(coder.backend, RecipeBackend):
-                            coder = CoderAgent(backend=RecipeBackend(inject_bug=False))
+                        self._reset_worktree(main_dir, worktree)
+                        coder = self._maybe_strip_seed(coder)
                         result["repair_count"] += 1
                         _set_task_state(TaskState.IN_PROGRESS)
                         session.flush()
@@ -460,6 +503,20 @@ class FactoryOrchestrator:
                 if p.is_file()
             )
         return found
+
+    @staticmethod
+    def _reset_worktree(main_dir: Path, worktree: Path) -> None:
+        """Drop a failed attempt's worktree and rebuild it from main."""
+        shutil.rmtree(worktree, ignore_errors=True)
+        worktree.mkdir(parents=True, exist_ok=True)
+        FactoryOrchestrator._snapshot_main(main_dir, worktree)
+
+    @staticmethod
+    def _maybe_strip_seed(coder: CoderAgent) -> CoderAgent:
+        """Drop an injected demo bug; never swap a configured backend."""
+        if isinstance(coder.backend, RecipeBackend):
+            return CoderAgent(backend=RecipeBackend(inject_bug=False))
+        return coder
 
     @staticmethod
     def _snapshot_main(main_dir: Path, worktree: Path) -> None:

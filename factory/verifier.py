@@ -139,10 +139,23 @@ class Verifier:
         workdir = Path(workdir).resolve()
         for name in self._gates:
             if name not in self._registry:
+                # Gate names are part of the configuration contract. A typo
+                # or a not-yet-implemented gate must never report green:
+                # "we verified" when we did not is a false assurance. Fail
+                # closed and stop the pipeline so the misconfiguration
+                # surfaces loudly instead of silently passing.
                 results.append(
-                    GateResult(name, True, "unknown gate; skipped", skipped=True)
+                    GateResult(
+                        name,
+                        False,
+                        "unknown gate {!r} (registered: {}) - a missing gate "
+                        "is a configuration error and refuses to pass; "
+                        "check FACTORY_VERIFY_GATES".format(
+                            name, sorted(self._registry)
+                        ),
+                    )
                 )
-                continue
+                break
             try:
                 results.append(self._registry[name](workdir, self))
             except Exception as exc:  # pragma: no cover - defensive

@@ -64,6 +64,9 @@ factory run <task_graph.json> --prd <prd.md>
 
 # 5) 查询项目持久化状态
 factory status p_demo_calc
+
+# 6) 里程碑推进：全部任务 DONE 且评审 APPROVE 后，一路走到 PRODUCTION
+factory promote p_demo_calc
 ```
 
 ## 示例任务图
@@ -84,11 +87,11 @@ factory status p_demo_calc
 ## 测试
 
 ```bash
-python -m pytest tests -q      # 76 个单元 + E2E 测试
+python -m pytest tests -q      # 90 个单元 + E2E 测试
 python -m ruff check factory tests   # 静态检查基线：0 告警
 ```
 
-覆盖：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，预算耗尽强制 BLOCKED）、验证管线、崩溃恢复（中断态任务自动复位重跑）、账本审计（每次 coder 花费落库）、以及完整 E2E（种子缺陷 → 修复 → 合并 → main 最终自洽）。
+覆盖：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，预算耗尽强制 BLOCKED）、验证管线、崩溃恢复（中断态任务自动复位重跑）、账本审计（每次 coder 花费落库）、执行墙钟护栏（attempt 超时回收为预算事件）、验证门 fail-closed（未注册的 gate 名绝不通过）、里程碑推进（REVIEW → PRODUCTION 的资格校验与断点续推）、以及完整 E2E（种子缺陷 → 修复 → 合并 → main 最终自洽）。
 
 ## 上线护栏（CI 契约）
 
@@ -99,6 +102,9 @@ python -m ruff check factory tests   # 静态检查基线：0 告警
 - **可复现基线**：`pyproject.toml` 中固化 ruff 规则集（E4/E7/E9/F/I，行宽 120），CI 可用同一命令复验。
 - **崩溃可恢复**：任务在 `IN_PROGRESS` / `WAITING_VERIFY` / `VERIFY_FAILED` / `WAITING_REVIEW` / `REVIEW_REJECTED` / `BLOCKED` 任一状态中断后，下一次 `factory run` 将其复位为 `READY` 重跑，绝不滞留为永久 BLOCKED。
 - **花费可审计**：每次 coder 尝试（token + 运行时长）都镜像写入 `BudgetLedger`（含项目级 `BudgetAccount`），重启后账目完整可查。
+- **执行墙钟护栏**：`FACTORY_ATTEMPT_TIMEOUT_S`（默认 300）限定单次 coder 尝试的墙钟上限，挂起的 LLM 调用被回收为预算事件（记账后重试或 BLOCKED），进程绝不因单次卡死而停滞。
+- **验证门 fail-closed**：`FACTORY_VERIFY_GATES` 中出现未注册的 gate 名时立即判定失败并中断管线（宁可红灯，绝不假装"已验证"），杜绝静默放行。
+- **里程碑推进有据**：`factory promote` 仅在「项目存在、所有任务 DONE、所有评审 APPROVE」时沿状态机推进到 PRODUCTION，每一步落 `kind=PROMOTE` 审计行；中途崩溃可在已到达阶段续推，拒绝时不改动任何状态。
 
 ## 目录
 
@@ -114,9 +120,10 @@ factory/
   agents/          base(契约) / coder(可注入缺陷) / reviewer(规则隔离) / registry
   orchestrator.py  worktree 隔离流水线主循环
   budget.py        预算追踪（防止 agent 失控）
-  workflows/       DevelopmentWorkflow（持久化、可续跑）
+  execution.py     执行墙钟护栏（attempt 超时回收为预算事件）
+  workflows/       DevelopmentWorkflow（持久化、可续跑、里程碑 promote）
   cli.py           typer 命令行入口
 examples/sample_project/  示例 PRD + 任务图
-tests/             76 个单元 + E2E 测试
+tests/             90 个单元 + E2E 测试
 ```
 *（内容由AI生成，仅供参考）*
