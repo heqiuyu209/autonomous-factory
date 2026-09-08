@@ -142,3 +142,20 @@ def test_promote_resumes_mid_chain(sample_graph_path, workspace):
         "CANARY",
         "PRODUCTION",
     ]
+
+
+def test_promote_resumes_from_canary(sample_graph_path, workspace):
+    """CANARY is a non-terminal hop in the promote chain: a project already
+    at CANARY must still complete the final hop to PRODUCTION. The old
+    resume logic skipped re-applying any stage already in the chain, which
+    silently stranded a CANARY project forever."""
+    wf = DevelopmentWorkflow(workspace_root=workspace)
+    wf.build("p_demo_calc", TaskGraph.load(sample_graph_path))
+
+    with session_scope() as session:
+        proj = session.get(Project, "p_demo_calc")
+        proj.state = "CANARY"  # simulate a resume point late in promotion
+
+    res = wf.promote("p_demo_calc")
+    assert res["state"] == "PRODUCTION"
+    assert res["advanced"] == ["PRODUCTION"]

@@ -417,6 +417,30 @@ class FactoryOrchestrator:
                     note=f"attempt {attempt}",
                 )
 
+                # --- coder failed guard
+                # A non-completed coder output (e.g. the LLM backend hit an
+                # upstream error, returned invalid JSON or an unsafe path)
+                # must NEVER be routed onward as if it were code to verify.
+                # Treat it as a failed attempt: clean the tree, retry within
+                # budget, or BLOCK once retries are exhausted - mirroring
+                # the VERIFY_FAILED path.
+                if last_output.status != "completed":
+                    result["reason"] = last_output.summary
+                    if attempt < max_retries:
+                        self._reset_worktree(main_dir, worktree)
+                        coder = self._maybe_strip_seed(coder)
+                        result["repair_count"] += 1
+                        # IN_PROGRESS cannot self-loop: bounce through READY
+                        # to re-queue this attempt.
+                        _set_task_state(TaskState.READY)
+                        _set_task_state(TaskState.IN_PROGRESS)
+                        session.flush()
+                        continue
+                    _set_task_state(TaskState.BLOCKED)
+                    session.flush()
+                    result["verdict"] = "BLOCKED"
+                    return result
+
                 # --- machine verifier gate
                 _set_task_state(TaskState.WAITING_VERIFY)
                 session.flush()

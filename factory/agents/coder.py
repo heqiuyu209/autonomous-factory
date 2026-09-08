@@ -168,15 +168,27 @@ class OpenAIBackend:
             f"Acceptance: {task.acceptance_criteria}\n"
             f"Workdir: {task.workdir}"
         )
-        resp = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=0,
-        )
-        return self._apply(task, resp.choices[0].message.content or "{}")
+        try:
+            resp = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0,
+            )
+            content = resp.choices[0].message.content if resp.choices else None
+        except Exception as exc:
+            # A model-layer failure (network, auth, rate limit, malformed
+            # upstream response) is a *failed attempt*, never a factory
+            # crash. Shaped as a failed AgentOutput so the orchestrator can
+            # route it through the normal repair loop / budget accounting
+            # instead of an unhandled exception blowing up the whole run.
+            return AgentOutput(
+                status="failed",
+                summary=f"LLM backend error: {exc!r}",
+            )
+        return self._apply(task, content or "{}")
 
     @staticmethod
     def _apply(task: AgentInput, payload: str) -> AgentOutput:
