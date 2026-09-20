@@ -11,13 +11,16 @@ def engine() -> PolicyEngine:
     return PolicyEngine()
 
 
-def test_coder_may_touch_worktree(engine):
-    engine.check_filesystem("coder", r"C:\ws\task7\sample_app\calc.py", r"C:\ws\task7")
+def test_coder_may_touch_worktree(engine, tmp_path):
+    worktree = tmp_path / "task7"
+    engine.check_filesystem("coder", worktree / "sample_app" / "calc.py", worktree)
 
 
-def test_coder_cannot_escape_worktree(engine):
+def test_coder_cannot_escape_worktree(engine, tmp_path):
+    worktree = tmp_path / "task7"
+    outside = tmp_path / "other" / "task.py"
     with pytest.raises(PolicyViolation):
-        engine.check_filesystem("coder", r"C:\ws\other\task.py", r"C:\ws\task7")
+        engine.check_filesystem("coder", outside, worktree)
 
 
 def test_coder_has_no_internet(engine):
