@@ -1,119 +1,196 @@
-﻿# Autonomous Software Factory (V1)
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 82fdf17faf4e6add2f17f1ee6bc91211_11106e2bb4f611f188f9525400248c00
+    ReservedCode1: 94cdVolVR3rnINnTyY5XmGxOF9NPCazF0c3lNiXvlZcp35Bs2wc5/n6zwEB/jsGW8HDdsE0BAF1rJnxCXebekpFbNIrNW6L1EE7Odcna8290QDhdnV6O8TMJPPpBz5qxx1ngTZzMHTZSt29EWUBWWCgWLJKO/Esl1z/qON9xt1424mPYI/ha+KSbWLQ=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 82fdf17faf4e6add2f17f1ee6bc91211_11106e2bb4f611f188f9525400248c00
+    ReservedCode2: 94cdVolVR3rnINnTyY5XmGxOF9NPCazF0c3lNiXvlZcp35Bs2wc5/n6zwEB/jsGW8HDdsE0BAF1rJnxCXebekpFbNIrNW6L1EE7Odcna8290QDhdnV6O8TMJPPpBz5qxx1ngTZzMHTZSt29EWUBWWCgWLJKO/Esl1z/qON9xt1424mPYI/ha+KSbWLQ=
+---
 
-> 自治软件创业工厂 · 第一代核心：把「目标」变成「验证通过的应用」。
+# Autonomous Software Factory
+**English** | [简体中文](README.zh-CN.md)
 
-本项目实现 `D:\visua\111\项目文档.md` 中架构蓝图的 **V1 核心**：
+> Turn a **goal** into a **verified application** — an autonomous software venture factory (V1 core).
 
-- **数据库 schema**（SQLAlchemy ORM + SQLite）
-- **Agent contracts**（统一的 `AgentInput` 输入契约与运行时注入后端）
-- **状态机**（Project / Task 双态机 + 迁移表）
-- **任务图**（DAG 校验、拓扑排序、就绪任务调度）
-- **权限模型**（角色最小权限能力引擎，拒则默认拒绝）
-- **第一版 orchestrator**（worktree 隔离 → coder → 机器验证 → 评审 → 修复循环 → 合并 main）
+Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V1 core of an "autonomous software company" blueprint: given a PRD and a task graph (DAG), it spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
 
-## 架构总览
+The design philosophy: **Agent Organization + Durable Workflow + Independent Verification System**, not a monolithic "one agent to do everything". Each role (coder, verifier, reviewer, budget) is separated so that no single agent holds the final truth.
+
+## Features
+
+- **Task-graph driven orchestration** — DAG validation, cycle/dependency checks, topological ordering, and ready-task scheduling from a JSON/YAML task graph.
+- **Git worktree isolation** — every task gets a fresh worktree snapshotted from `main`; the coder is *only* allowed to write inside its own worktree (enforced by policy, not convention).
+- **Independent machine verification gates** — `syntax` → `test` → `lint` run in order; gates are **fail-closed** (an unknown gate name fails the build rather than being silently skipped).
+- **Rule-isolated reviewer** — the reviewer inspects spec, diff, gates and tests independently; empty/failed coder output is rejected, never merged.
+- **Repair loop with hard caps** — verify/review failures trigger automatic repair, capped by `FACTORY_MAX_RETRIES` (default 3); exhausted tasks end in `BLOCKED`, never hang.
+- **Least-privilege permission engine** — role-based allow-list with **deny-by-default**; the coder has no network, no secrets, no production access.
+- **Budget guardrails** — per-task token and wall-clock runtime budgets; a spent budget hard-blocks the task; a hung coder attempt is reclaimed via a per-attempt timeout (default 300s).
+- **Crash recovery** — durable state in SQLite (or PostgreSQL); interrupted tasks are auto-reset to `READY` and resumed on the next run, never stuck as a permanent `BLOCKED`.
+- **Audit ledger** — every coder attempt (tokens + runtime) is mirrored into a durable `BudgetLedger` with per-project accounts.
+- **Milestone promotion** — `factory promote` walks a fully built, fully reviewed project through the state machine (… → `PRODUCTION`) with eligibility checks and audit rows; resumable after a crash.
+- **CI-ready exit codes** — `factory run` returns `0` only when the task graph completes (`DONE`); any `BLOCKED`/partial outcome returns `1`.
+
+## Architecture
 
 ```
-PRD + 任务图(DAG)
-      │
-      ▼
-┌────────────────── SOFTWARE FACTORY ──────────────────┐
-│  ┌─────────┐   ┌──────────┐   ┌───────────┐         │
-│  │  coder  │ → │ verifier │ → │ reviewer  │ 修复循环 │
-│  │(注入缺陷│   │(语法/测试│   │(规则隔离)  │  FAIL→   │
-│  │ 演示用) │   │ 机器闸门)│   │           │  重来    │
-│  └─────────┘   └──────────┘   └───────────┘         │
-│        │               只允许写 worktree                │
-│        ▼                                             │
-│   worktree(基于 main 快照隔离) ──通过后──► merge → main │
-└──────────────────────────────────────────────────────┘
+PRD + task graph (DAG)
+        │
+        ▼
+┌────────────────────── SOFTWARE FACTORY ──────────────────────┐
+│                                                              │
+│   ┌────────┐   ┌────────────┐   ┌──────────┐                 │
+│   │ coder  │ → │  verifier  │ → │ reviewer │   repair loop   │
+│   │(seeded │   │ machine    │   │ rule-    │   FAIL ──────┐  │
+│   │ defects│   │ gates)     │   │ isolated │              │  │
+│   └───┬────┘   └─────┬──────┘   └────┬─────┘              │  │
+│       │  may only write worktree     │                    │  │
+│       ▼                              │                    │  │
+│  worktree (snapshot of main) ────────┘                    │  │
+│        │                                                    │  │
+│        └────────────── pass ──► merge into main ◄───────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-- **隔离**：每个任务从 `main` 快照出独立 worktree，`coder` 只能写 worktree（policy 强制）。
-- **验证**：机器闸门（语法 + pytest）客观把关；测试失败自动触发 repair 循环。
-- **许可**：角色能力 allow-list；`coder` 无网络、无 secrets、无生产访问。
-- **持久化**：project / task / review / run / budget 账本全量落库；任务级 `detail`（含种子标记）与 `workdir` 每次执行即提交，崩溃后 `factory run` 自动复位中断态任务并断点续跑。
+Every transition is guarded by **policy + evidence + gate**. The database (project/task/review/run/budget) is the source of truth; nothing important lives in chat history.
 
-## 快速开始
+## Quick Start
+
+Requirements: Python **3.11+**.
 
 ```bash
+# 1) Install
 pip install -e .
 
-# 1) 初始化数据库
+# 2) Initialize the database (default: local SQLite ./factory.db)
 factory init-db
 
-# 2) 查看某角色的权限边界
+# 3) Inspect a role's permission boundary
 factory policy coder
 
-# 3) 端到端演示：示例项目（首个任务故意注入缺陷，流水线必须捕获并修复）
+# 4) Run the bundled end-to-end demo
+#    (T001 is deliberately seeded with a defect — the pipeline must
+#     catch it via verification and repair it before merging)
 factory demo
 
-# 4) 自定义项目
-factory run <task_graph.json> --prd <prd.md>
-
-# 5) 查询项目持久化状态
+# 5) Query the durable state of a project
 factory status p_demo_calc
 
-# 6) 里程碑推进：全部任务 DONE 且评审 APPROVE 后，一路走到 PRODUCTION
+# 6) Promote a fully built + fully reviewed project to PRODUCTION
 factory promote p_demo_calc
+
+# 7) Run your own project from a task graph
+factory run <task_graph.json> --prd <prd.md>
 ```
 
-## 示例任务图
+> **Exit-code contract**: `factory run` returns `0` only when every task reaches `DONE`. Any `BLOCKED` or partial outcome returns `1` — wire it straight into CI.
+
+## Example task graph
 
 ```jsonc
 // examples/sample_project/task_graph.json
 {
   "project_id": "p_demo_calc",
+  "name": "Sample Calculator Service",
   "tasks": [
     { "id": "T001", "title": "implement sample_app package with tests",
       "dependencies": [], "meta": { "target": "all" } },
-    { "id": "T002", "title": "harden test suite",
+    { "id": "T002", "title": "harden test suite (regression guard)",
       "dependencies": ["T001"], "meta": { "target": "tests" } }
   ]
 }
 ```
 
-## 测试
+Each task can carry `acceptance` criteria and a `files` allow-list. The orchestrator resolves dependencies, schedules ready tasks, and only merges a task once its verification gates pass and the reviewer approves.
+
+## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q      # 103 个单元 + E2E 测试
-python -m ruff check factory tests   # 静态检查基线：0 告警
+python -m pytest tests -q          # 103 passed, 1 skipped (v0.1.0, Py3.11)
+python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
-覆盖：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，预算耗尽强制 BLOCKED）、验证管线、崩溃恢复（中断态任务自动复位重跑）、账本审计（每次 coder 花费落库）、执行墙钟护栏（attempt 超时回收为预算事件）、验证门 fail-closed（未注册的 gate 名绝不通过）、里程碑推进（REVIEW → PRODUCTION 的资格校验与断点续推）、以及完整 E2E（种子缺陷 → 修复 → 合并 → main 最终自洽）。
+Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), and a full E2E (seeded defect → repair → merge → self-consistent `main`).
 
-## 上线护栏（CI 契约）
+CI (`.github/workflows/ci.yml`) runs on Python 3.11 / 3.12: `ruff check` + `pytest --cov=factory`.
 
-- **退出码即结果**：`factory run` 仅在任务图完整执行（`DONE`）时返回 `0`，任何 `BLOCKED` / 部分产物返回 `1`，可直接接入 CI 判定。
-- **预算兜底**：`FACTORY_RUNTIME_BUDGET_S`（默认 1800）在每次 coder 尝试**开始前**预检，预算耗尽立即 BLOCKED，绝不空转。
-- **绝不静默合入**：任何未通过机器验证 / 评审的任务都不会写入 `main`；失败修复循环由 `FACTORY_MAX_RETRIES`（默认 3）封顶。
-- **空产物安全**：coder 返回失败或空文件集时，评审以「声明文件缺失」REJECT，最终进入 BLOCKED，不会产出半成品。
-- **可复现基线**：`pyproject.toml` 中固化 ruff 规则集（E4/E7/E9/F/I，行宽 120），CI 可用同一命令复验。
-- **崩溃可恢复**：任务在 `IN_PROGRESS` / `WAITING_VERIFY` / `VERIFY_FAILED` / `WAITING_REVIEW` / `REVIEW_REJECTED` / `BLOCKED` 任一状态中断后，下一次 `factory run` 将其复位为 `READY` 重跑，绝不滞留为永久 BLOCKED。
-- **花费可审计**：每次 coder 尝试（token + 运行时长）都镜像写入 `BudgetLedger`（含项目级 `BudgetAccount`），重启后账目完整可查。
-- **执行墙钟护栏**：`FACTORY_ATTEMPT_TIMEOUT_S`（默认 300）限定单次 coder 尝试的墙钟上限，挂起的 LLM 调用被回收为预算事件（记账后重试或 BLOCKED），进程绝不因单次卡死而停滞。
-- **验证门 fail-closed**：`FACTORY_VERIFY_GATES` 中出现未注册的 gate 名时立即判定失败并中断管线（宁可红灯，绝不假装"已验证"），杜绝静默放行。
-- **里程碑推进有据**：`factory promote` 仅在「项目存在、所有任务 DONE、所有评审 APPROVE」时沿状态机推进到 PRODUCTION，每一步落 `kind=PROMOTE` 审计行；中途崩溃可在已到达阶段续推，拒绝时不改动任何状态。
+## Production Guardrails (CI contract)
 
-## 目录
+- **Exit code is the result** — a build is green only if the whole graph is `DONE`; anything else is a non-zero exit.
+- **Never silently merge** — unverified/unreviewed work never reaches `main`; the repair loop is capped by `FACTORY_MAX_RETRIES`.
+- **Budget fallback** — `FACTORY_RUNTIME_BUDGET_S` is pre-checked before every coder attempt; exhausted budget → immediate `BLOCKED`, no idle spinning.
+- **Empty-artifact safety** — empty or failed coder output is rejected by the reviewer ("declared files missing") and ends `BLOCKED`, never a half-baked artifact.
+- **Wall-clock guardrail** — `FACTORY_ATTEMPT_TIMEOUT_S` caps a single coder attempt; a hung LLM call is reclaimed as a budget event.
+- **Fail-closed verification** — an unknown gate name in `FACTORY_VERIFY_GATES` fails the pipeline (red light, never a fake "verified").
+- **Crash-recoverable** — any task interrupted in `IN_PROGRESS`/`WAITING_VERIFY`/`VERIFY_FAILED`/`WAITING_REVIEW`/`REVIEW_REJECTED`/`BLOCKED` is reset to `READY` and re-run on the next `factory run`.
+- **Spend is auditable** — every coder attempt (token + runtime) lands in `BudgetLedger` with per-project accounts.
+- **Promotion has evidence** — `factory promote` only advances when the project exists, all tasks are `DONE`, and all reviews are `APPROVE`; every step writes a `kind=PROMOTE` audit row.
+- **Reproducible baseline** — the ruff rule set (E4/E7/E9/F/I, line length 120) is pinned in `pyproject.toml`, so CI can re-verify with the same command.
+
+## Project Layout
 
 ```
-factory/
-  config.py        Settings（worktree / 预算上限 / 数据库）
-  db.py            引擎与会话管理
-  schemas/         输入契约：Evidence / Risk / AgentOutput / TaskGraph
-  state_machine.py 双态机 + 迁移表 + 策略闸门
-  models/          Project / Task / Review / Run / Budget ORM
-  policy.py        角色最小权限能力引擎
-  verifier.py     syntax / pytest 机器验证闸门
-  agents/          base(契约) / coder(可注入缺陷) / reviewer(规则隔离) / registry
-  orchestrator.py  worktree 隔离流水线主循环
-  budget.py        预算追踪（防止 agent 失控）
-  execution.py     执行墙钟护栏（attempt 超时回收为预算事件）
-  workflows/       DevelopmentWorkflow（持久化、可续跑、里程碑 promote）
-  cli.py           typer 命令行入口
-examples/sample_project/  示例 PRD + 任务图
-tests/             103 个单元 + E2E 测试
+autonomous-factory/
+├── factory/                 # core implementation
+│   ├── cli.py               # typer CLI (init-db / run / demo / status / policy / promote)
+│   ├── config.py            # environment-driven settings
+│   ├── db.py                # SQLAlchemy engine & session management
+│   ├── orchestrator.py      # worktree-isolated pipeline main loop
+│   ├── state_machine.py     # project/task state machines + migration table
+│   ├── verifier.py          # syntax / pytest / lint machine gates
+│   ├── policy.py            # least-privilege permission engine
+│   ├── budget.py            # token + runtime budget tracking
+│   ├── safety.py            # id / path safety checks
+│   ├── execution.py         # wall-clock attempt guardrail
+│   ├── agents/              # base (contracts), coder, reviewer, registry
+│   ├── models/              # Project / Task / Review / Run / Budget ORM
+│   ├── schemas/             # Evidence / Risk / AgentOutput / TaskGraph
+│   └── workflows/           # DevelopmentWorkflow (persistent, resumable, promote)
+├── examples/sample_project/ # bundled PRD + task graph demo
+├── tests/                   # unit + E2E test suite
+├── factory_runtime/         # runtime workspace (worktrees & artifacts, git-ignored)
+└── .github/workflows/       # CI pipeline
 ```
 
+## Configuration
 
+All settings are environment-driven; every variable is optional (sensible local defaults). Secrets belong in the environment — never in code.
+
+| Variable | Default | Description |
+|---|---|---|
+| `FACTORY_DATABASE_URL` | `sqlite:///./factory.db` | Durable state store. Point at PostgreSQL for production: `postgresql+psycopg://user:pass@host:5432/factory` |
+| `FACTORY_WORKSPACE` | `./factory_runtime` | Where project worktrees and run artifacts live |
+| `FACTORY_MAX_RETRIES` | `3` | Max repair attempts per task before hard `BLOCKED` |
+| `FACTORY_TOKEN_BUDGET` | `120000` | Per-task token budget |
+| `FACTORY_RUNTIME_BUDGET_S` | `1800` | Per-task wall-clock runtime budget |
+| `FACTORY_ATTEMPT_TIMEOUT_S` | `300` | Per-attempt wall-clock ceiling (hung LLM calls are reclaimed) |
+| `FACTORY_VERIFY_GATES` | `syntax,test,lint` | Comma-separated gates run in order; unknown names fail closed |
+| `FACTORY_ISOLATION` | `worktree` | Worktree isolation mode for per-project/task sandboxes |
+
+See `.env.example` for a ready-to-copy template.
+
+### Connecting a real LLM backend
+
+By default the coder uses a deterministic in-process `RecipeBackend` — great for demos and CI, zero external dependencies. To drive the factory with a real model, install the `llm` extra and set the OpenAI-compatible variables:
+
+```bash
+pip install -e ".[llm]"
+
+export OPENAI_API_KEY=sk-...
+export OPENAI_BASE_URL=https://api.openai.com/v1
+export OPENAI_MODEL=gpt-4o-mini
+```
+
+Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend instead of the recipe backend. Only commit keys in your environment, never in the repository.
+
+## Status
+
+- **v0.1.0** — V1 core implemented and verified: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, and milestone promotion.
+- The roadmap beyond V1 (market scouting, validation engine, portfolio CEO, etc.) is intentionally **not** part of this repository yet — this repo ships the factory itself, not the venture-capital layer.
+
+## License
+
+Not yet specified — no `LICENSE` file is included in this repository at this time. A license will be chosen before the first public release.
+*（内容由AI生成，仅供参考）*
+*（内容由AI生成，仅供参考）*
