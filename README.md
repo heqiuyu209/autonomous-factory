@@ -1,15 +1,4 @@
-﻿---
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 82fdf17faf4e6add2f17f1ee6bc91211_6a7e9e02aaca11f18f50525400aeaaa3
-    ReservedCode1: tk30iUHUiEk4/7Bn0c1m/rGDFtD3Ef+LWB7xi/LZy5J4o+fxisApI6zoNAF8nhl4D1w97xBrs2AwduoopA1KwO5Wmg9eEnOLuWD/7k2ZCcmg9Bm7l1s22eLDn3drL/CreaXTkWgwicgsMmkn53wWmJNr39qShxuCFhEctRUd2Gn/pM7WAFRt7RZy+nY=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 82fdf17faf4e6add2f17f1ee6bc91211_6a7e9e02aaca11f18f50525400aeaaa3
-    ReservedCode2: tk30iUHUiEk4/7Bn0c1m/rGDFtD3Ef+LWB7xi/LZy5J4o+fxisApI6zoNAF8nhl4D1w97xBrs2AwduoopA1KwO5Wmg9eEnOLuWD/7k2ZCcmg9Bm7l1s22eLDn3drL/CreaXTkWgwicgsMmkn53wWmJNr39qShxuCFhEctRUd2Gn/pM7WAFRt7RZy+nY=
----
-
-# Autonomous Software Factory (V1)
+﻿# Autonomous Software Factory (V1)
 
 > 自治软件创业工厂 · 第一代核心：把「目标」变成「验证通过的应用」。
 
@@ -126,6 +115,5 @@ factory/
 examples/sample_project/  示例 PRD + 任务图
 tests/             103 个单元 + E2E 测试
 ```
-*（内容由AI生成，仅供参考）*
 
 
