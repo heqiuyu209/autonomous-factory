@@ -1,14 +1,3 @@
----
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 82fdf17faf4e6add2f17f1ee6bc91211_123b2a0cb4f611f193fb525400393706
-    ReservedCode1: AyuT55sUB26vYqglvlvlRng8spto4VgouPtJJOfPEo2VvazkFS2H1Y5V+y1RdfywUXW2q2TZQ3wnw39iFzsMh8A0xEwh+M95EEk8OOJbTbaXxuV9NFvNjRg39ERTudUCSxwtnbzhLdBm/zjS5Ywgx0OnsFNTDp0Z3p25H1fYlT/qyBoTQjzJLFsm86Q=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 82fdf17faf4e6add2f17f1ee6bc91211_123b2a0cb4f611f193fb525400393706
-    ReservedCode2: AyuT55sUB26vYqglvlvlRng8spto4VgouPtJJOfPEo2VvazkFS2H1Y5V+y1RdfywUXW2q2TZQ3wnw39iFzsMh8A0xEwh+M95EEk8OOJbTbaXxuV9NFvNjRg39ERTudUCSxwtnbzhLdBm/zjS5Ywgx0OnsFNTDp0Z3p25H1fYlT/qyBoTQjzJLFsm86Q=
----
-
 # Autonomous Software Factory
 
 > 把「目标」变成「验证通过的应用」——自治软件创业工厂（V1 核心）。
@@ -189,5 +178,4 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## License
 
-尚未指定——本仓库目前未包含 `LICENSE` 文件。将在首次公开发布前选定许可证。
-*（内容由AI生成，仅供参考）*
+以 [MIT License](LICENSE) 发布。

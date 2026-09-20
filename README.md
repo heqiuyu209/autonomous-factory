@@ -1,14 +1,3 @@
----
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 82fdf17faf4e6add2f17f1ee6bc91211_11106e2bb4f611f188f9525400248c00
-    ReservedCode1: 94cdVolVR3rnINnTyY5XmGxOF9NPCazF0c3lNiXvlZcp35Bs2wc5/n6zwEB/jsGW8HDdsE0BAF1rJnxCXebekpFbNIrNW6L1EE7Odcna8290QDhdnV6O8TMJPPpBz5qxx1ngTZzMHTZSt29EWUBWWCgWLJKO/Esl1z/qON9xt1424mPYI/ha+KSbWLQ=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 82fdf17faf4e6add2f17f1ee6bc91211_11106e2bb4f611f188f9525400248c00
-    ReservedCode2: 94cdVolVR3rnINnTyY5XmGxOF9NPCazF0c3lNiXvlZcp35Bs2wc5/n6zwEB/jsGW8HDdsE0BAF1rJnxCXebekpFbNIrNW6L1EE7Odcna8290QDhdnV6O8TMJPPpBz5qxx1ngTZzMHTZSt29EWUBWWCgWLJKO/Esl1z/qON9xt1424mPYI/ha+KSbWLQ=
----
-
 # Autonomous Software Factory
 **English** | [简体中文](README.zh-CN.md)
 
@@ -191,6 +180,4 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## License
 
-Not yet specified — no `LICENSE` file is included in this repository at this time. A license will be chosen before the first public release.
-*（内容由AI生成，仅供参考）*
-*（内容由AI生成，仅供参考）*
+Released under the [MIT License](LICENSE).
