@@ -87,7 +87,7 @@ factory promote p_demo_calc
 ## 测试
 
 ```bash
-python -m pytest tests -q      # 107 个单元 + E2E 测试
+python -m pytest tests -q      # 103 个单元 + E2E 测试
 python -m ruff check factory tests   # 静态检查基线：0 告警
 ```
 
@@ -124,7 +124,7 @@ factory/
   workflows/       DevelopmentWorkflow（持久化、可续跑、里程碑 promote）
   cli.py           typer 命令行入口
 examples/sample_project/  示例 PRD + 任务图
-tests/             107 个单元 + E2E 测试
+tests/             103 个单元 + E2E 测试
 ```
 *（内容由AI生成，仅供参考）*
 
