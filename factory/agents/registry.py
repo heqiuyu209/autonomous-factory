@@ -5,6 +5,7 @@ from .architect import ArchitectAgent
 from .coder import CoderAgent, RecipeBackend
 from .pm import PMAgent
 from .reviewer import ReviewerAgent
+from .scout import MarketScoutAgent
 
 __all__ = [
     "AgentRegistry",
@@ -13,6 +14,7 @@ __all__ = [
     "ReviewerAgent",
     "RecipeBackend",
     "PMAgent",
+    "MarketScoutAgent",
 ]
 
 
@@ -37,4 +39,5 @@ class AgentRegistry:
         reg.register("coder", CoderAgent())
         reg.register("pm", PMAgent())
         reg.register("reviewer", ReviewerAgent())
+        reg.register("scout", MarketScoutAgent())
         return reg

@@ -148,6 +148,44 @@ def plan(
     typer.echo("Next step: factory run <task_graph.json> --prd <prd.md>")
 
 
+@app.command()
+def scout(
+    query: str = typer.Argument(..., help="market direction / query to scout"),
+    out_dir: Path = typer.Option(
+        Path(__file__).resolve().parent.parent / "examples" / "v3_scouts",
+        "--out-dir",
+        help="output directory for opportunity candidates",
+    ),
+    project_id: str | None = typer.Option(None, "--project-id", help="override project id"),
+    source: list[str] = typer.Option([], "--source", help="repeatable data source hint (reddit/github/search/...)"),
+) -> None:
+    """V3: scout a market direction into opportunity candidates (Market Scout)."""
+    from .agents.base import AgentInput
+    from .agents.scout import MarketScoutAgent, _slug
+
+    pid = project_id or _slug(query)
+    workdir = out_dir / pid
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    out = MarketScoutAgent().run(
+        AgentInput(
+            agent="scout",
+            project_id=pid,
+            task_id="scout",
+            goal=query,
+            constraints=source,
+            workdir=str(workdir),
+        )
+    )
+    if out.status != "completed":
+        typer.echo(f"Scout failed: {out.summary}")
+        raise typer.Exit(1)
+
+    typer.echo(f"Candidates  : {workdir / 'opportunities.json'}")
+    typer.echo(f"Summary     : {workdir / 'opportunities.md'}")
+    typer.echo("Next step: review candidates, then factory plan <selected> to build.")
+
+
 def _print_report(report: dict, project_id: str) -> None:
     typer.echo("")
     typer.echo(f"project: {project_id}")

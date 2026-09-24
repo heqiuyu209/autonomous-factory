@@ -5,6 +5,8 @@ but the schema mirrors the blueprint so V4 can bolt on later.
 """
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pydantic import BaseModel, Field
 
 
@@ -35,7 +37,7 @@ class OpportunityScore(BaseModel):
     competition_risk: float = 0.0
 
     # blueprint §4 weighting
-    WEIGHTS = {
+    WEIGHTS: ClassVar[dict[str, float]] = {
         "pain_severity": 0.20,
         "frequency": 0.15,
         "willingness_to_pay": 0.15,
