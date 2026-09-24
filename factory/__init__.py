@@ -11,4 +11,4 @@ The key architectural invariant (blueprint §20):
     The agent that writes code is NOT the one that verifies it.
 """
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"

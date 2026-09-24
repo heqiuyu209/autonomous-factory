@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-09-24
+
+### Added
+
+- Deployment Agent (blueprint V5/§16): staged release ladder with automatic
+  rollback — `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1 → CANARY_5 →
+  CANARY_25 → CANARY_100 → LIVE`; any gate failure or canary metric regression
+  (error rate up / latency up / conversion down) marks the release
+  `ROLLED_BACK` with the failing stage and reason.
+  - `factory/schemas/deployment.py`: `ReleaseStage`, `GateResult`,
+    `CanaryMetrics`, `DeploymentDecision`.
+  - `factory/agents/deployment.py`: deterministic `DeploymentEngine` reading
+    `deployment_config.json` and writing `deployments.json` + `deployments.md`.
+  - `factory deploy <config.json>` CLI (config paths tolerant to UTF-8 BOM).
+- Analytics Agent (blueprint V5/§17): turns user telemetry into the next
+  iteration loop — signals / issues / recommendations (`Bug`, `Feature`,
+  `Experiment`, `Optimization`, `Scale`, `Kill`) that re-enter
+  Planner → Coding Agents.
+  - `factory/schemas/analytics.py`: `MetricSample`, `AnalyticsIssue`,
+    `Recommendation`, `AnalyticsReport` (health: good / degraded / critical).
+  - `factory/agents/analytics.py`: deterministic rule engine over
+    traffic / signup / activation / retention / errors / support tickets /
+    feature requests / revenue / infrastructure cost.
+  - `factory analyze <metrics.json>` CLI writing `analytics.json` +
+    `analytics.md`.
+- 24 new tests (deployment gates + rollback + agent run + CLI subprocess;
+  analytics rules + CLI), full suite 170 passed, 1 skipped.
+
 ## [4.0.0] - 2026-09-24
 
 ### Added

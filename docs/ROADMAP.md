@@ -121,7 +121,7 @@ Agent Organization + Durable Workflow + Independent Verification System
 | V2 | PM + Architect | 问题描述 → 自动产品 | ✅ v2.0.0 封版 |
 | V3 | Market Scout | 互联网 → 自动发现机会 | ✅ v3.0.0 封版 |
 | V4 | Validation Engine | 机会 → 自动验证市场需求 | ✅ v4.0.0 封版 |
-| V5 | Deployment + Analytics | 产品 → 用户数据 → 自动迭代 | ⬜ 未开始 |
+| V5 | Deployment + Analytics | 产品 → 用户数据 → 自动迭代 | ✅ v5.0.0 封版 |
 | V6 | Portfolio CEO | 同时管理 N 个产品，Build/Scale/Kill | ⬜ 未开始 |
 
 ### 各版本定义
@@ -153,9 +153,16 @@ Agent Organization + Durable Workflow + Independent Verification System
   反对意见、Judge 综合决策与置信度、`factory validate` CLI（写
   validations.json/.md、支持 --conversion 喂入模拟实验数据）
 
-**V5**
+**V5（已封版 v5.0.0）**
 - 新增：Deployment + Analytics（发布到 STAGING/CANARY → Production，收集用户数据）
 - 输出：用户反馈数据回流
+- 已实现：`factory deploy`（STAGING_SMOKE → SECURITY_GATE → PERF_GATE →
+  CANARY_1/5/25/100 阶梯发布，gate 失败或 error↑/latency↑/conversion↓ 自动
+  ROLLBACK，写 deployments.json/.md）；`factory analyze`（把 traffic/signup/
+  activation/retention/errors/support_tickets/feature_requests/revenue/cost
+  遥测转成 signals/issues/recommendations，产出 Bug/Feature/Experiment/
+  Optimization/Scale/Kill 建议重新进入 Planner → Coding Agents，写
+  analytics.json/.md）
 
 **V6**
 - 新增：Portfolio CEO（同时管理 N 个产品，自动 Build / Scale / Kill）
@@ -165,10 +172,10 @@ Agent Organization + Durable Workflow + Independent Verification System
 
 ## 4. 当前定位
 
-- 仓库当前处于 **V4 封版态（v4.0.0）**。
-- 下一步开发目标：**V5 — Deployment + Analytics，让产品发布与用户数据回流闭环**。
-- V1-V4 的编码/验证/修复流水线、市场侦察与需求验证能力是 V5 的底座，V5 不重写它们，
-  只在产品验证通过后接入发布与数据回流模块。
+- 仓库当前处于 **V5 封版态（v5.0.0）**。
+- 下一步开发目标：**V6 — Portfolio CEO，同时管理 N 个产品，自动 Build / Scale / Kill**。
+- V1-V5 的编码/验证/修复流水线、市场侦察、需求验证与发布/数据回流能力是 V6 的底座，
+  V6 不重写它们，只在多个产品之上叠加组合决策层。
 
 ---
 

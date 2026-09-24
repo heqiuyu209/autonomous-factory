@@ -28,6 +28,10 @@ The design philosophy: **Agent Organization + Durable Workflow + Independent Ver
 - **`factory scout` CLI (V3)** — `factory scout [--backend recipe|web]` writes `opportunities.json` + `opportunities.md`; `factory scout --plan` runs PM → Architect on a chosen candidate, closing the scout → plan loop.
 - **Validation Engine (V4)** — Product Council gates between scouted opportunities and build decisions: deterministic evidence gate (below threshold → `KILL`), cheap-experiment gate (no conversion data → `TEST`; below threshold → `KILL`), Devil's Advocate objections and a Judge combining decision + confidence + evidence.
 - **`factory validate` CLI (V4)** — `factory validate opportunities.json` writes `validations.json` + `validations.md`; supports `--opp`, `--evidence-threshold`, `--conversion-threshold` and repeatable `--conversion opp_id=0.083` to feed simulated experiment results.
+- **Deployment Agent (V5)** — staged release ladder `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1/5/25/100 → LIVE` with automatic rollback when a gate fails or canary error/latency/conversion regresses.
+- **`factory deploy` CLI (V5)** — `factory deploy deployment_config.json` writes `deployments.json` + `deployments.md` (stage, decision `LIVE` / `ROLLED_BACK`, failing stage and reason).
+- **Analytics Agent (V5)** — turns telemetry (traffic / signup / activation / retention / errors / support / feature requests / revenue / infra cost) into signals, issues and recommendations (`Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill`) that re-enter the Planner → Coding loop.
+- **`factory analyze` CLI (V5)** — `factory analyze metrics.json` writes `analytics.json` + `analytics.md` with an overall health (`good` / `degraded` / `critical`).
 
 ## Architecture
 
@@ -96,6 +100,12 @@ factory validate examples/v3_scout/opportunities.json
 
 # 12) (V4) Feed a simulated cheap-experiment result to reach BUILD
 factory validate examples/v3_scout/opportunities.json --conversion opp_xxx=0.083
+
+# 13) (V5) Deploy a validated product (staged release ladder, auto-rollback)
+factory deploy deployment_config.json
+
+# 14) (V5) Turn user telemetry into the next iteration loop
+factory analyze metrics.json
 ```
 
 > **Exit-code contract**: `factory run` returns `0` only when every task reaches `DONE`. Any `BLOCKED` or partial outcome returns `1` — wire it straight into CI.
@@ -121,7 +131,7 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 146 passed, 1 skipped (v4.0.0, Py3.11)
+python -m pytest tests -q          # 170 passed, 1 skipped (v5.0.0, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
@@ -200,11 +210,12 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
+- **v5.0.0** — V5 released: Deployment Agent (staged release ladder `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1/5/25/100 → LIVE`, automatic rollback on gate failure or canary error/latency/conversion regression; `factory deploy` CLI) + Analytics Agent (telemetry → signals / issues / recommendations `Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill` that re-enter Planner → Coding; `factory analyze` CLI with health `good` / `degraded` / `critical`).
 - **v4.0.0** — V4 released: Validation Engine turning scouted opportunities into BUILD / TEST / KILL via deterministic evidence + conversion gates, Devil's Advocate objections, Judge confidence; `factory validate` CLI (validations.json/.md, `--conversion` for simulated experiments).
 - **v3.0.0** — V3 released: Market Scout Agent (`factory scout`) with recipe/web/OpenAI backends, real Reddit/GitHub scraping via WebBackend with defensive degradation, and `factory scout --plan` closing the scout → plan loop (opportunities.json → PRD + task graph).
 - **v2.0.0** — V2 released: PM agent (problem statement → PRD), Architect agent (PRD → task graph), `factory plan` CLI, per-account budget-ledger uniqueness with idempotent legacy migration. `factory plan "<goal>"` now produces PRD + task graph that feed directly into `factory run`.
 - **v1.0.0** — V1 core released: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, milestone promotion, CI exit-code contract, pluggable LLM backends, plus formal roadmap (`docs/ROADMAP.md`) and changelog (`CHANGELOG.md`).
-- The roadmap beyond V4 (deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
+- The roadmap beyond V5 (portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
 
 ## License
 
