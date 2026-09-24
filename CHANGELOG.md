@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-09-24
+
+### Added
+
+- Validation Engine (blueprint V4): Product Council gates between a scouted
+  opportunity and a build decision.
+  - `factory/schemas/validation.py`: `ValidationDecision` contract with
+    evidence / conversion gates, decision (KILL / TEST / BUILD), confidence,
+    objections and reasons.
+  - `factory/agents/validation.py`: deterministic `ValidationEngine` with
+    separated roles — `DevilAdvocate` (prove this should NOT be built:
+    competitor / willingness-to-pay / distribution / AI / regulatory / build
+    cost / synthetic-evidence objections) and `JudgeEngine` (evidence gate →
+    cheap experiment → conversion gate; strong objections downgrade BUILD to
+    TEST).
+  - `factory validate` CLI: reads `opportunities.json` from `factory scout`,
+    writes `validations.json` + `validations.md`; supports `--opp`,
+    `--evidence-threshold`, `--conversion-threshold` and repeatable
+    `--conversion opp_id=0.083` to feed simulated cheap-experiment results.
+  - Evidence policy: synthetic recipe candidates (evidence_count=0) fail the
+    evidence gate; real web-scouted candidates pass to TEST, and pass to
+    BUILD once conversion clears the threshold.
+
 ## [3.0.0] - 2026-09-24
 
 ### Added

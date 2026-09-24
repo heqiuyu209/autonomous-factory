@@ -2,7 +2,7 @@
 
 > 把「目标」变成「验证通过的应用」——自治软件创业工厂（V3 核心）。
 
-Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系统**的编码工厂。它实现了"自治软件公司"架构蓝图的 V3 核心：Market Scout 从互联网信号中收割机会候选，PM 写出 PRD，Architect 将其拆成任务图（DAG），工厂再拉起相互隔离的编码 Agent，用确定性的机器闸门验证每一次改动，由独立评审 Agent 把关，失败自动修复，**只有真正通过验证的代码才会合并进 `main`**——绝不静默合入、不无限重试、每一分花费都有据可查。
+Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系统**的编码工厂。它实现了"自治软件公司"架构蓝图的 V4 核心：Market Scout 从互联网信号中收割机会候选，PM 写出 PRD，Architect 将其拆成任务图（DAG），工厂再拉起相互隔离的编码 Agent，用确定性的机器闸门验证每一次改动，由独立评审 Agent 把关，失败自动修复，**只有真正通过验证的代码才会合并进 `main`**——绝不静默合入、不无限重试、每一分花费都有据可查。
 
 设计哲学是 **Agent 组织 + 持久化工作流 + 独立验证系统**，而不是"一个万能 Agent 包办一切"。编码（coder）、验证（verifier）、评审（reviewer）、预算（budget）等角色彼此隔离，**没有任何单一 Agent 掌握最终真相**。
 
@@ -25,6 +25,8 @@ Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系�
 - **按账户隔离的审计账本（V2 加固）** —— 预算唯一约束按账户隔离，多项目不再冲突；旧库幂等迁移。
 - **Market Scout Agent（V3）** —— 从互联网信号收割机会候选；可插拔后端：`recipe`（确定性、免 Key）、`web`（真实 Reddit/GitHub 公开 API + 防御性超时降级）、OpenAI（设 `OPENAI_API_KEY` 启用）。
 - **`factory scout` CLI（V3）** —— `factory scout [--backend recipe|web]` 产出 `opportunities.json` + `opportunities.md`；`factory scout --plan` 对选中候选跑 PM → Architect，打通 scout → plan 闭环。
+- **Validation Engine（V4）** —— 产品评审闸门：确定性证据门（低于阈值 → `KILL`）、便宜实验门（无转化数据 → `TEST`；低于阈值 → `KILL`）、Devil's Advocate 反对意见与 Judge 综合决策（decision + confidence + evidence）。
+- **`factory validate` CLI（V4）** —— `factory validate opportunities.json` 产出 `validations.json` + `validations.md`；支持 `--opp`、`--evidence-threshold`、`--conversion-threshold` 与可重复 `--conversion opp_id=0.083` 喂入模拟实验结果。
 
 ## 架构
 
@@ -111,11 +113,11 @@ factory scout --plan --out-dir examples/v3_scout --plan-out-dir examples/v3_scou
 ## 测试与静态检查
 
 ```bash
-python -m pytest tests -q          # 131 passed, 1 skipped（v3.0.0，Py3.11 实测）
+python -m pytest tests -q          # 146 passed, 1 skipped（v4.0.0，Py3.11 实测）
 python -m ruff check factory tests # 确定性 lint 基线：0 告警
 ```
 
-覆盖范围：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，耗尽 → 硬 `BLOCKED`）、验证管线、崩溃恢复（中断任务自动复位续跑）、审计账本、执行墙钟护栏、fail-closed 闸门、里程碑推进（资格校验 + 断点续推）、完整 E2E（预埋缺陷 → 修复 → 合并 → `main` 最终自洽），以及 scout 后端（recipe/web/非法名）、scout→plan 管线、WebBackend 降级。
+覆盖范围：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，耗尽 → 硬 `BLOCKED`）、验证管线、崩溃恢复（中断任务自动复位续跑）、审计账本、执行墙钟护栏、fail-closed 闸门、里程碑推进（资格校验 + 断点续推）、完整 E2E（预埋缺陷 → 修复 → 合并 → `main` 最终自洽），以及 scout 后端（recipe/web/非法名）、scout→plan 管线、WebBackend 降级、Validation Engine 闸门（证据/KILL、无数据 TEST、转化 BUILD/KILL、Devil's Advocate 反对意见、CLI 契约）。
 
 CI（`.github/workflows/ci.yml`）在 Python 3.11 / 3.12 上运行：`ruff check` + `pytest --cov=factory`。
 
@@ -190,10 +192,11 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## 项目状态
 
+- **v4.0.0** —— V4 发布：Validation Engine 把 scout 机会候选转成 BUILD / TEST / KILL 决策——确定性证据门 + 转化门、Devil's Advocate 反对意见、Judge 置信度；`factory validate` CLI（validations.json/.md，`--conversion` 喂入模拟实验）。
 - **v3.0.0** —— V3 发布：Market Scout Agent（`factory scout`），recipe/web/OpenAI 三种后端，WebBackend 真实抓取 Reddit/GitHub + 防御性降级，`factory scout --plan` 打通 scout → plan 闭环（opportunities.json → PRD + 任务图）。
 - **v2.0.0** —— V2 发布：PM Agent（问题描述 → PRD）、Architect Agent（PRD → 任务图）、`factory plan` CLI、按账户隔离的预算账本唯一约束 + 旧库幂等迁移。`factory plan "<目标>"` 产出的 PRD + 任务图可直接喂给 `factory run`。
 - **v1.0.0** —— V1 核心发布：任务图工厂、worktree 隔离、机器验证闸门、评审、预算护栏、崩溃恢复、审计账本、里程碑推进、CI 退出码契约、可插拔 LLM 后端，并附正式路线图（`docs/ROADMAP.md`）与变更日志（`CHANGELOG.md`）。
-- V3 之后的路线图（验证引擎、部署与分析、Portfolio CEO）见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。
+- V4 之后的路线图（部署与分析、Portfolio CEO）见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。
 
 ## License
 

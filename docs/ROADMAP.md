@@ -119,8 +119,8 @@ Agent Organization + Durable Workflow + Independent Verification System
 | V0 | 单 Agent + 独立 verifier | 一个 coding task → 代码 | ✅ 已达成 |
 | V1 | Planner + Coder + Reviewer + QA | PRD + 任务图 → working application | ✅ v1.0.0 封版 |
 | V2 | PM + Architect | 问题描述 → 自动产品 | ✅ v2.0.0 封版 |
-| V3 | Market Scout | 互联网 → 自动发现机会 | ⬜ 未开始 |
-| V4 | Validation Engine | 机会 → 自动验证市场需求 | ⬜ 未开始 |
+| V3 | Market Scout | 互联网 → 自动发现机会 | ✅ v3.0.0 封版 |
+| V4 | Validation Engine | 机会 → 自动验证市场需求 | ✅ v4.0.0 封版 |
 | V5 | Deployment + Analytics | 产品 → 用户数据 → 自动迭代 | ⬜ 未开始 |
 | V6 | Portfolio CEO | 同时管理 N 个产品，Build/Scale/Kill | ⬜ 未开始 |
 
@@ -145,9 +145,13 @@ Agent Organization + Durable Workflow + Independent Verification System
   防御性降级）、`factory scout` CLI（写 opportunities.json/.md）、
   `factory scout --plan` 打通 scout → plan 闭环
 
-**V4**
+**V4（已封版 v4.0.0）**
 - 新增：Validation Engine（Opportunity Engine 聚类排序 + Product Council GO/TEST/KILL 决策）
 - 输出：通过评审的 Approved idea
+- 已实现：确定性证据门（evidence_score < threshold → KILL）、便宜实验门
+  （conversion < threshold → KILL；无实验数据 → TEST）、Devil's Advocate
+  反对意见、Judge 综合决策与置信度、`factory validate` CLI（写
+  validations.json/.md、支持 --conversion 喂入模拟实验数据）
 
 **V5**
 - 新增：Deployment + Analytics（发布到 STAGING/CANARY → Production，收集用户数据）
@@ -161,10 +165,10 @@ Agent Organization + Durable Workflow + Independent Verification System
 
 ## 4. 当前定位
 
-- 仓库当前处于 **V3 封版态（v3.0.0）**。
-- 下一步开发目标：**V4 — Validation Engine，从机会候选自动验证市场需求**。
-- V1-V3 的编码/验证/修复流水线与市场侦察能力是 V4 的底座，V4 不重写它们，
-  只在其前段插入机会评估与验证决策模块。
+- 仓库当前处于 **V4 封版态（v4.0.0）**。
+- 下一步开发目标：**V5 — Deployment + Analytics，让产品发布与用户数据回流闭环**。
+- V1-V4 的编码/验证/修复流水线、市场侦察与需求验证能力是 V5 的底座，V5 不重写它们，
+  只在产品验证通过后接入发布与数据回流模块。
 
 ---
 

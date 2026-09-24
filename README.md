@@ -1,9 +1,9 @@
 # Autonomous Software Factory
 **English** | [简体中文](README.zh-CN.md)
 
-> Turn a **goal** into a **verified application** — an autonomous software venture factory (V3 core).
+> Turn a **goal** into a **verified application** — an autonomous software venture factory (V4 core).
 
-Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V3 core of an "autonomous software company" blueprint: a Market Scout harvests internet signals into opportunity candidates, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
+Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V4 core of an "autonomous software company" blueprint: a Market Scout harvests internet signals into opportunity candidates, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
 
 The design philosophy: **Agent Organization + Durable Workflow + Independent Verification System**, not a monolithic "one agent to do everything". Each role (coder, verifier, reviewer, budget) is separated so that no single agent holds the final truth.
 
@@ -26,6 +26,8 @@ The design philosophy: **Agent Organization + Durable Workflow + Independent Ver
 - **Per-account audit ledger (V2 hardening)** — budget uniqueness is scoped per account so multiple projects never collide; legacy databases migrate idempotently.
 - **Market Scout Agent (V3)** — harvests internet signals into opportunity candidates; pluggable backends: `recipe` (deterministic, no key), `web` (real Reddit/GitHub public APIs with defensive timeout fallback), and OpenAI (via `OPENAI_API_KEY`).
 - **`factory scout` CLI (V3)** — `factory scout [--backend recipe|web]` writes `opportunities.json` + `opportunities.md`; `factory scout --plan` runs PM → Architect on a chosen candidate, closing the scout → plan loop.
+- **Validation Engine (V4)** — Product Council gates between scouted opportunities and build decisions: deterministic evidence gate (below threshold → `KILL`), cheap-experiment gate (no conversion data → `TEST`; below threshold → `KILL`), Devil's Advocate objections and a Judge combining decision + confidence + evidence.
+- **`factory validate` CLI (V4)** — `factory validate opportunities.json` writes `validations.json` + `validations.md`; supports `--opp`, `--evidence-threshold`, `--conversion-threshold` and repeatable `--conversion opp_id=0.083` to feed simulated experiment results.
 
 ## Architecture
 
@@ -88,6 +90,12 @@ factory scout --backend web --out-dir examples/v3_scout   # real Reddit/GitHub s
 
 # 10) (V3) Scout + plan in one shot (PM → Architect on a candidate)
 factory scout --plan --out-dir examples/v3_scout --plan-out-dir examples/v3_scout/plan
+
+# 11) (V4) Validate scouted opportunities (evidence gate → TEST/KILL)
+factory validate examples/v3_scout/opportunities.json
+
+# 12) (V4) Feed a simulated cheap-experiment result to reach BUILD
+factory validate examples/v3_scout/opportunities.json --conversion opp_xxx=0.083
 ```
 
 > **Exit-code contract**: `factory run` returns `0` only when every task reaches `DONE`. Any `BLOCKED` or partial outcome returns `1` — wire it straight into CI.
@@ -113,11 +121,11 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 131 passed, 1 skipped (v3.0.0, Py3.11)
+python -m pytest tests -q          # 146 passed, 1 skipped (v4.0.0, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
-Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), a full E2E (seeded defect → repair → merge → self-consistent `main`), scout backends (recipe/web/unknown), scout→plan pipeline, and WebBackend degradation.
+Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), a full E2E (seeded defect → repair → merge → self-consistent `main`), scout backends (recipe/web/unknown), scout→plan pipeline, WebBackend degradation, and Validation Engine gates (evidence/KILL, no-data TEST, conversion BUILD/KILL, devil's advocate objections, CLI contract).
 
 CI (`.github/workflows/ci.yml`) runs on Python 3.11 / 3.12: `ruff check` + `pytest --cov=factory`.
 
@@ -192,10 +200,11 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
+- **v4.0.0** — V4 released: Validation Engine turning scouted opportunities into BUILD / TEST / KILL via deterministic evidence + conversion gates, Devil's Advocate objections, Judge confidence; `factory validate` CLI (validations.json/.md, `--conversion` for simulated experiments).
 - **v3.0.0** — V3 released: Market Scout Agent (`factory scout`) with recipe/web/OpenAI backends, real Reddit/GitHub scraping via WebBackend with defensive degradation, and `factory scout --plan` closing the scout → plan loop (opportunities.json → PRD + task graph).
 - **v2.0.0** — V2 released: PM agent (problem statement → PRD), Architect agent (PRD → task graph), `factory plan` CLI, per-account budget-ledger uniqueness with idempotent legacy migration. `factory plan "<goal>"` now produces PRD + task graph that feed directly into `factory run`.
 - **v1.0.0** — V1 core released: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, milestone promotion, CI exit-code contract, pluggable LLM backends, plus formal roadmap (`docs/ROADMAP.md`) and changelog (`CHANGELOG.md`).
-- The roadmap beyond V3 (validation engine, deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
+- The roadmap beyond V4 (deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
 
 ## License
 
