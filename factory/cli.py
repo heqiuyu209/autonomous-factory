@@ -94,25 +94,18 @@ def policy(agent: str) -> None:
         typer.echo(f"{k:12}: {v}")
 
 
-@app.command()
-def plan(
-    goal: str = typer.Argument(..., help="problem statement / goal"),
-    out_dir: Path = typer.Option(
-        Path(__file__).resolve().parent.parent / "examples" / "v2_plans",
-        "--out-dir",
-        help="output directory for PRD and task graph",
-    ),
-    project_id: str | None = typer.Option(None, "--project-id", help="override project id"),
-    constraint: list[str] = typer.Option([], "--constraint", help="repeatable constraint"),
-    acceptance: list[str] = typer.Option([], "--acceptance", help="repeatable acceptance criterion"),
+def _plan_pipeline(
+    pid: str,
+    workdir: Path,
+    goal: str,
+    constraints: list[str],
+    acceptance: list[str],
 ) -> None:
-    """V2: turn a problem statement into PRD + task graph (PM -> Architect)."""
-    from .agents.architect import ArchitectAgent, _slug
+    """Shared PM -> Architect pipeline used by `plan` and `scout --plan`."""
+    from .agents.architect import ArchitectAgent
     from .agents.base import AgentInput
     from .agents.pm import PMAgent
 
-    pid = project_id or _slug(goal)
-    workdir = out_dir / pid
     workdir.mkdir(parents=True, exist_ok=True)
 
     pm_out = PMAgent().run(
@@ -121,7 +114,7 @@ def plan(
             project_id=pid,
             task_id="plan",
             goal=goal,
-            constraints=constraint,
+            constraints=constraints,
             acceptance_criteria=acceptance,
             workdir=str(workdir),
         )
@@ -149,6 +142,25 @@ def plan(
 
 
 @app.command()
+def plan(
+    goal: str = typer.Argument(..., help="problem statement / goal"),
+    out_dir: Path = typer.Option(
+        Path(__file__).resolve().parent.parent / "examples" / "v2_plans",
+        "--out-dir",
+        help="output directory for PRD and task graph",
+    ),
+    project_id: str | None = typer.Option(None, "--project-id", help="override project id"),
+    constraint: list[str] = typer.Option([], "--constraint", help="repeatable constraint"),
+    acceptance: list[str] = typer.Option([], "--acceptance", help="repeatable acceptance criterion"),
+) -> None:
+    """V2: turn a problem statement into PRD + task graph (PM -> Architect)."""
+    from .agents.scout import _slug
+
+    pid = project_id or _slug(goal)
+    _plan_pipeline(pid, out_dir / pid, goal, constraint, acceptance)
+
+
+@app.command()
 def scout(
     query: str = typer.Argument(..., help="market direction / query to scout"),
     out_dir: Path = typer.Option(
@@ -158,6 +170,9 @@ def scout(
     ),
     project_id: str | None = typer.Option(None, "--project-id", help="override project id"),
     source: list[str] = typer.Option([], "--source", help="repeatable data source hint (reddit/github/search/...)"),
+    plan: bool = typer.Option(False, "--plan", help="auto-build factory plan from the top candidate"),
+    plan_opp: str | None = typer.Option(None, "--plan-opp", help="opportunity_id to plan (default: top candidate)"),
+    plan_out_dir: Path | None = typer.Option(None, "--plan-out-dir", help="plan output dir (default: <out_dir>/plans/<pid>)"),
 ) -> None:
     """V3: scout a market direction into opportunity candidates (Market Scout)."""
     from .agents.base import AgentInput
@@ -183,7 +198,33 @@ def scout(
 
     typer.echo(f"Candidates  : {workdir / 'opportunities.json'}")
     typer.echo(f"Summary     : {workdir / 'opportunities.md'}")
-    typer.echo("Next step: review candidates, then factory plan <selected> to build.")
+
+    if plan:
+        _scout_plan(pid, workdir, plan_opp, plan_out_dir or (out_dir / "plans" / pid))
+
+
+def _scout_plan(pid: str, workdir: Path, plan_opp: str | None, plan_out_dir: Path) -> None:
+    """V3->V2 bridge: turn the top (or named) opportunity candidate into a plan."""
+    from json import loads
+
+    from .agents.scout import Opportunity
+
+    opp_path = workdir / "opportunities.json"
+    candidates = [Opportunity.model_validate(d) for d in loads(opp_path.read_text(encoding="utf-8"))]
+    if not candidates:
+        typer.echo("No opportunity candidates found; nothing to plan.")
+        raise typer.Exit(1)
+    opp = next((o for o in candidates if o.opportunity_id == plan_opp), None) if plan_opp else candidates[0]
+    if opp is None:
+        typer.echo(f"opportunity '{plan_opp}' not found in {opp_path}")
+        raise typer.Exit(1)
+
+    goal = f"{opp.hypothesis}"
+    constraints = []
+    for p in opp.pains:
+        constraints.append(f"{p.persona}: {p.problem}")
+    typer.echo(f"Planning top candidate: {opp.opportunity_id} (score={opp.score})")
+    _plan_pipeline(pid, plan_out_dir, goal, constraints, [])
 
 
 def _print_report(report: dict, project_id: str) -> None:

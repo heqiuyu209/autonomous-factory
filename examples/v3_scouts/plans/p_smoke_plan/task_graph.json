@@ -1,0 +1,51 @@
+{
+  "project_id": "p_smoke_plan",
+  "name": "Product: 提供一个面向「ai meeting notes」的轻量自动化产品，让用户以低成本获得核心价值",
+  "tasks": [
+    {
+      "id": "T001",
+      "title": "implement product with tests",
+      "description": "Implement the MVP described in the PRD.\nGoal: 提供一个面向「ai meeting notes」的轻量自动化产品，让用户以低成本获得核心价值",
+      "dependencies": [],
+      "acceptance": [
+        "sample_app package exists and is importable",
+        "unit tests cover the MVP behaviour",
+        "all unit tests pass"
+      ],
+      "files": [
+        "sample_app/__init__.py",
+        "sample_app/calc.py",
+        "tests/test_calc.py"
+      ],
+      "token_budget": null,
+      "runtime_budget_s": null,
+      "meta": {
+        "target": "all"
+      }
+    },
+    {
+      "id": "T002",
+      "title": "harden test suite (regression guard)",
+      "description": "Reassert the test suite on top of the merged main; acts as an integration gate.\nAcceptance:\n- [ ] 满足 Goal 描述的最小可用实现",
+      "dependencies": [
+        "T001"
+      ],
+      "acceptance": [
+        "tests cover the MVP behaviour end to end",
+        "no regressions on merged main"
+      ],
+      "files": [
+        "tests/test_calc.py"
+      ],
+      "token_budget": null,
+      "runtime_budget_s": null,
+      "meta": {
+        "target": "tests"
+      }
+    }
+  ],
+  "meta": {
+    "prd_path": "prd.md",
+    "generated_by": "architect-recipe"
+  }
+}

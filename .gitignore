@@ -29,3 +29,6 @@ runs/
 Thumbs.db
 .idea/
 .vscode/
+
+# local project notes (not tracked)
+项目文档.md
