@@ -94,7 +94,7 @@ factory run <task_graph.json> --prd <prd.md>
 ## 测试与静态检查
 
 ```bash
-python -m pytest tests -q          # 103 passed, 1 skipped（v0.1.0，Py3.11 实测）
+python -m pytest tests -q          # 103 passed, 1 skipped（v1.0.0，Py3.11 实测）
 python -m ruff check factory tests # 确定性 lint 基线：0 告警
 ```
 
@@ -173,8 +173,8 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## 项目状态
 
-- **v0.1.0** —— V1 核心已实现并通过验证：任务图工厂、worktree 隔离、机器验证闸门、评审、预算护栏、崩溃恢复、审计账本、里程碑推进。
-- V1 之后的路线图（市场侦察、验证引擎、Portfolio CEO 等）**有意不**包含在本仓库中——本仓库交付的是"工厂"本身，而不是"风险投资层"。
+- **v1.0.0** —— V1 核心发布：任务图工厂、worktree 隔离、机器验证闸门、评审、预算护栏、崩溃恢复、审计账本、里程碑推进、CI 退出码契约、可插拔 LLM 后端，并附正式路线图（`docs/ROADMAP.md`）与变更日志（`CHANGELOG.md`）。
+- V1 之后的路线图（PM + Architect、市场侦察、验证引擎、部署与分析、Portfolio CEO）见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。
 
 ## License
 

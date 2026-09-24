@@ -96,7 +96,7 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 103 passed, 1 skipped (v0.1.0, Py3.11)
+python -m pytest tests -q          # 103 passed, 1 skipped (v1.0.0, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
@@ -175,8 +175,8 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
-- **v0.1.0** — V1 core implemented and verified: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, and milestone promotion.
-- The roadmap beyond V1 (market scouting, validation engine, portfolio CEO, etc.) is intentionally **not** part of this repository yet — this repo ships the factory itself, not the venture-capital layer.
+- **v1.0.0** — V1 core released: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, milestone promotion, CI exit-code contract, pluggable LLM backends, plus formal roadmap (`docs/ROADMAP.md`) and changelog (`CHANGELOG.md`).
+- The roadmap beyond V1 (PM + Architect, market scouting, validation engine, deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
 
 ## License
 
