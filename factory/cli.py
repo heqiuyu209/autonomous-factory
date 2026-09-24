@@ -233,6 +233,68 @@ def _scout_plan(pid: str, workdir: Path, plan_opp: str | None, plan_out_dir: Pat
     _plan_pipeline(pid, plan_out_dir, goal, constraints, [])
 
 
+@app.command()
+def validate(
+    opps: Path = typer.Argument(..., help="path to opportunities.json from factory scout"),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="output dir for validations (default: same dir as opps)"),
+    opp_id: str | None = typer.Option(None, "--opp", help="validate only this opportunity_id"),
+    evidence_threshold: float = typer.Option(0.40, "--evidence-threshold", help="minimum evidence score to pass the gate"),
+    conversion_threshold: float = typer.Option(0.03, "--conversion-threshold", help="minimum measured conversion to BUILD"),
+    conversion: list[str] = typer.Option([], "--conversion", help="repeatable simulated experiment result: opp_id=0.083"),
+) -> None:
+    """V4: validate scouted opportunities into BUILD / TEST / KILL."""
+    from json import loads
+
+    from .agents.base import AgentInput
+    from .agents.validation import ValidationEngine
+
+    candidates = [dict(d) for d in loads(opps.read_text(encoding="utf-8"))]
+    if opp_id:
+        candidates = [c for c in candidates if c["opportunity_id"] == opp_id]
+        if not candidates:
+            typer.echo(f"opportunity '{opp_id}' not found in {opps}")
+            raise typer.Exit(1)
+
+    conversions: dict[str, float] = {}
+    for item in conversion:
+        if "=" not in item:
+            typer.echo(f"invalid --conversion '{item}' (expected opp_id=0.083)")
+            raise typer.Exit(1)
+        oid, raw = item.split("=", 1)
+        conversions[oid] = float(raw)
+
+    workdir = (out_dir or opps.parent)
+    workdir.mkdir(parents=True, exist_ok=True)
+    # stage opportunities.json next to the validation output so the agent
+    # contract (read opportunities.json -> write validations.*) holds
+    staged = workdir / "opportunities.json"
+    if not staged.exists() or staged.resolve() != opps.resolve():
+        staged.write_text(opps.read_text(encoding="utf-8"), encoding="utf-8")
+
+    engine = ValidationEngine(
+        evidence_threshold=evidence_threshold,
+        conversion_threshold=conversion_threshold,
+    )
+    out = engine.run(
+        AgentInput(
+            agent="validation",
+            project_id="validation",
+            task_id="validate",
+            goal="validate scouted opportunities",
+            constraints=[],
+            workdir=str(workdir),
+            context={"conversion_rates": conversions},
+        )
+    )
+    if out.status != "completed":
+        typer.echo(f"Validation failed: {out.summary}")
+        raise typer.Exit(1)
+
+    typer.echo(f"Decisions    : {workdir / 'validations.json'}")
+    typer.echo(f"Summary      : {workdir / 'validations.md'}")
+    typer.echo(out.summary)
+
+
 def _print_report(report: dict, project_id: str) -> None:
     typer.echo("")
     typer.echo(f"project: {project_id}")
