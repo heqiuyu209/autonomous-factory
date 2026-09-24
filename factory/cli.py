@@ -94,6 +94,60 @@ def policy(agent: str) -> None:
         typer.echo(f"{k:12}: {v}")
 
 
+@app.command()
+def plan(
+    goal: str = typer.Argument(..., help="problem statement / goal"),
+    out_dir: Path = typer.Option(
+        Path(__file__).resolve().parent.parent / "examples" / "v2_plans",
+        "--out-dir",
+        help="output directory for PRD and task graph",
+    ),
+    project_id: str | None = typer.Option(None, "--project-id", help="override project id"),
+    constraint: list[str] = typer.Option([], "--constraint", help="repeatable constraint"),
+    acceptance: list[str] = typer.Option([], "--acceptance", help="repeatable acceptance criterion"),
+) -> None:
+    """V2: turn a problem statement into PRD + task graph (PM -> Architect)."""
+    from .agents.architect import ArchitectAgent, _slug
+    from .agents.base import AgentInput
+    from .agents.pm import PMAgent
+
+    pid = project_id or _slug(goal)
+    workdir = out_dir / pid
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    pm_out = PMAgent().run(
+        AgentInput(
+            agent="pm",
+            project_id=pid,
+            task_id="plan",
+            goal=goal,
+            constraints=constraint,
+            acceptance_criteria=acceptance,
+            workdir=str(workdir),
+        )
+    )
+    if pm_out.status != "completed":
+        typer.echo(f"PM failed: {pm_out.summary}")
+        raise typer.Exit(1)
+
+    arch_out = ArchitectAgent().run(
+        AgentInput(
+            agent="architect",
+            project_id=pid,
+            task_id="plan",
+            goal=goal,
+            workdir=str(workdir),
+        )
+    )
+    if arch_out.status != "completed":
+        typer.echo(f"Architect failed: {arch_out.summary}")
+        raise typer.Exit(1)
+
+    typer.echo(f"PRD        : {workdir / 'prd.md'}")
+    typer.echo(f"Task graph : {workdir / 'task_graph.json'}")
+    typer.echo("Next step: factory run <task_graph.json> --prd <prd.md>")
+
+
 def _print_report(report: dict, project_id: str) -> None:
     typer.echo("")
     typer.echo(f"project: {project_id}")
