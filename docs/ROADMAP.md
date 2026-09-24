@@ -122,7 +122,7 @@ Agent Organization + Durable Workflow + Independent Verification System
 | V3 | Market Scout | 互联网 → 自动发现机会 | ✅ v3.0.0 封版 |
 | V4 | Validation Engine | 机会 → 自动验证市场需求 | ✅ v4.0.0 封版 |
 | V5 | Deployment + Analytics | 产品 → 用户数据 → 自动迭代 | ✅ v5.0.0 封版 |
-| V6 | Portfolio CEO | 同时管理 N 个产品，Build/Scale/Kill | ⬜ 未开始 |
+| V6 | Portfolio CEO | 同时管理 N 个产品，Build/Scale/Kill | ✅ v6.0.0 封版 |
 
 ### 各版本定义
 
@@ -164,18 +164,27 @@ Agent Organization + Durable Workflow + Independent Verification System
   Optimization/Scale/Kill 建议重新进入 Planner → Coding Agents，写
   analytics.json/.md）
 
-**V6**
+**V6（已封版 v6.0.0）**
 - 新增：Portfolio CEO（同时管理 N 个产品，自动 Build / Scale / Kill）
 - 输出：基于数据的持续决策闭环
+- 已实现：确定性规则引擎扫描每个产品目录的状态文件（analytics.json /
+  deployments.json / validations.json，UTF-8 BOM 兼容），按信号优先级决策
+  （analytics Scale/Kill/Experiment 建议或 health → deployment ROLLED_BACK
+  → KILL / LIVE → EXPERIMENT → validation BUILD/TEST/KILL），产出
+  priority + 归一化预算分配，`factory portfolio <dir>` CLI（写
+  portfolio.json/.md）；KILL 释放预算、SCALE 追加投入，形成
+  scout → validate → build → deploy → analyze → portfolio 全链闭环
 
 ---
 
 ## 4. 当前定位
 
-- 仓库当前处于 **V5 封版态（v5.0.0）**。
-- 下一步开发目标：**V6 — Portfolio CEO，同时管理 N 个产品，自动 Build / Scale / Kill**。
-- V1-V5 的编码/验证/修复流水线、市场侦察、需求验证与发布/数据回流能力是 V6 的底座，
-  V6 不重写它们，只在多个产品之上叠加组合决策层。
+- 仓库当前处于 **V6 封版态（v6.0.0）**，蓝图 V0→V6 全部完成。
+- V0-V6 已形成完整闭环：Market Scout（V3）→ Validation Engine（V4）→
+  编码/验证流水线（V1/V2）→ Deployment + Analytics（V5）→ Portfolio CEO
+  组合决策与预算再分配（V6），用户数据回流 CEO 形成持续决策循环。
+- 后续演进方向：在确定性规则之上接入 OpenAI 兼容 LLM 判断、真实多产品
+  部署与组合回测。
 
 ---
 

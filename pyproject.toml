@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autonomous-factory"
-version = "5.0.0"
+version = "6.0.0"
 description = "Autonomous Software Venture Factory - V2 core: problem statement to verified application via PM/Architect planning and task-graph driven factory"
 requires-python = ">=3.11"
 dependencies = [

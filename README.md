@@ -1,9 +1,9 @@
 # Autonomous Software Factory
 **English** | [简体中文](README.zh-CN.md)
 
-> Turn a **goal** into a **verified application** — an autonomous software venture factory (V4 core).
+> Turn a **goal** into a **verified application** — an autonomous software venture factory (V6 core).
 
-Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V4 core of an "autonomous software company" blueprint: a Market Scout harvests internet signals into opportunity candidates, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
+Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V6 core of an "autonomous software company" blueprint: a Market Scout harvests internet signals into opportunity candidates, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend. Released products are deployed through a canary ladder with automatic rollback, their telemetry flows back through the Analytics Agent, and a Portfolio CEO decides Build / Scale / Kill across the whole portfolio while re-allocating budget to winners.
 
 The design philosophy: **Agent Organization + Durable Workflow + Independent Verification System**, not a monolithic "one agent to do everything". Each role (coder, verifier, reviewer, budget) is separated so that no single agent holds the final truth.
 
@@ -32,6 +32,8 @@ The design philosophy: **Agent Organization + Durable Workflow + Independent Ver
 - **`factory deploy` CLI (V5)** — `factory deploy deployment_config.json` writes `deployments.json` + `deployments.md` (stage, decision `LIVE` / `ROLLED_BACK`, failing stage and reason).
 - **Analytics Agent (V5)** — turns telemetry (traffic / signup / activation / retention / errors / support / feature requests / revenue / infra cost) into signals, issues and recommendations (`Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill`) that re-enter the Planner → Coding loop.
 - **`factory analyze` CLI (V5)** — `factory analyze metrics.json` writes `analytics.json` + `analytics.md` with an overall health (`good` / `degraded` / `critical`).
+- **Portfolio CEO Agent (V6)** — the top of the factory: instead of optimizing a single product it runs a Darwinian portfolio — scan every product's state files (`analytics.json` / `deployments.json` / `validations.json`, UTF-8 BOM tolerant) and decide BUILD / SCALE / EXPERIMENT / HOLD / KILL with execution priority, freeing budget from killed products and re-investing it in winners.
+- **`factory portfolio` CLI (V6)** — `factory portfolio <portfolio-dir>` writes `portfolio.json` + `portfolio.md` (each subdirectory of the portfolio root is one product), closing the loop: scout → validate → build → deploy → analyze → portfolio.
 
 ## Architecture
 
@@ -106,6 +108,9 @@ factory deploy deployment_config.json
 
 # 14) (V5) Turn user telemetry into the next iteration loop
 factory analyze metrics.json
+
+# 15) (V6) Run the Portfolio CEO across N products (Build / Scale / Kill)
+factory portfolio examples/v6_smoke/products
 ```
 
 > **Exit-code contract**: `factory run` returns `0` only when every task reaches `DONE`. Any `BLOCKED` or partial outcome returns `1` — wire it straight into CI.
@@ -131,11 +136,11 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 170 passed, 1 skipped (v5.0.0, Py3.11)
+python -m pytest tests -q          # 185 passed, 1 skipped (v6.0.0, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
-Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), a full E2E (seeded defect → repair → merge → self-consistent `main`), scout backends (recipe/web/unknown), scout→plan pipeline, WebBackend degradation, and Validation Engine gates (evidence/KILL, no-data TEST, conversion BUILD/KILL, devil's advocate objections, CLI contract).
+Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), a full E2E (seeded defect → repair → merge → self-consistent `main`), scout backends (recipe/web/unknown), scout→plan pipeline, WebBackend degradation, Validation Engine gates (evidence/KILL, no-data TEST, conversion BUILD/KILL, devil's advocate objections, CLI contract), Deployment ladder + auto-rollback, Analytics rules, and Portfolio CEO decisions (signal precedence, budget normalization, CLI contract).
 
 CI (`.github/workflows/ci.yml`) runs on Python 3.11 / 3.12: `ruff check` + `pytest --cov=factory`.
 
@@ -210,12 +215,13 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
+- **v6.0.0** — V6 released: Portfolio CEO (`factory portfolio`) deciding BUILD / SCALE / EXPERIMENT / HOLD / KILL across N products from per-product state files (analytics / deployments / validations), with execution priority and normalized budget allocation. Blueprint V0→V6 is complete: scout → validate → build → deploy → analyze → portfolio is a closed loop with user data flowing back to the CEO.
 - **v5.0.0** — V5 released: Deployment Agent (staged release ladder `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1/5/25/100 → LIVE`, automatic rollback on gate failure or canary error/latency/conversion regression; `factory deploy` CLI) + Analytics Agent (telemetry → signals / issues / recommendations `Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill` that re-enter Planner → Coding; `factory analyze` CLI with health `good` / `degraded` / `critical`).
 - **v4.0.0** — V4 released: Validation Engine turning scouted opportunities into BUILD / TEST / KILL via deterministic evidence + conversion gates, Devil's Advocate objections, Judge confidence; `factory validate` CLI (validations.json/.md, `--conversion` for simulated experiments).
 - **v3.0.0** — V3 released: Market Scout Agent (`factory scout`) with recipe/web/OpenAI backends, real Reddit/GitHub scraping via WebBackend with defensive degradation, and `factory scout --plan` closing the scout → plan loop (opportunities.json → PRD + task graph).
 - **v2.0.0** — V2 released: PM agent (problem statement → PRD), Architect agent (PRD → task graph), `factory plan` CLI, per-account budget-ledger uniqueness with idempotent legacy migration. `factory plan "<goal>"` now produces PRD + task graph that feed directly into `factory run`.
 - **v1.0.0** — V1 core released: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, milestone promotion, CI exit-code contract, pluggable LLM backends, plus formal roadmap (`docs/ROADMAP.md`) and changelog (`CHANGELOG.md`).
-- The roadmap beyond V5 (portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
+- The roadmap is captured in [docs/ROADMAP.md](docs/ROADMAP.md); each stage ships as a tagged major version. Beyond V6 the factory is open to LLM-driven judgement, real multi-product deployment and portfolio backtesting.
 
 ## License
 

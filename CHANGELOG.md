@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-09-24
+
+### Added
+
+- Portfolio CEO (blueprint V6/§1/§18): top-of-factory combination layer that
+  owns N products instead of optimizing a single one — Darwinian portfolio:
+  scale winners / experiment with maybes / kill losers, then re-allocate
+  compute budget.
+  - `factory/schemas/portfolio.py`: `PortfolioAction` (BUILD / SCALE /
+    EXPERIMENT / HOLD / KILL + priority + budget_weight) and
+    `PortfolioReport`.
+  - `factory/agents/portfolio.py`: deterministic `PortfolioCEO` scanning each
+    product directory's state files — `analytics.json` (strongest signal:
+    Scale/Kill/Experiment recommendation or health good/degraded/critical),
+    `deployments.json` (ROLLED_BACK → KILL, LIVE → EXPERIMENT),
+    `validations.json` (BUILD / TEST / KILL verdicts) — with signal
+    precedence, priority ordering and normalized budget allocation.
+    Reads are UTF-8 BOM tolerant (PowerShell `Set-Content` output).
+  - `factory portfolio <portfolio-dir>` CLI writing `portfolio.json` +
+    `portfolio.md` (each subdirectory of the portfolio root is one product).
+  - 15 new tests (decision rules, analytics-over-validation precedence,
+    budget normalization, CLI contract), full suite 185 passed, 1 skipped.
+
 ## [5.0.0] - 2026-09-24
 
 ### Added

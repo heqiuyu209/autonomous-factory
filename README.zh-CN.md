@@ -1,8 +1,8 @@
 # Autonomous Software Factory
 
-> 把「目标」变成「验证通过的应用」——自治软件创业工厂（V3 核心）。
+> 把「目标」变成「验证通过的应用」——自治软件创业工厂（V6 核心）。
 
-Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系统**的编码工厂。它实现了"自治软件公司"架构蓝图的 V4 核心：Market Scout 从互联网信号中收割机会候选，PM 写出 PRD，Architect 将其拆成任务图（DAG），工厂再拉起相互隔离的编码 Agent，用确定性的机器闸门验证每一次改动，由独立评审 Agent 把关，失败自动修复，**只有真正通过验证的代码才会合并进 `main`**——绝不静默合入、不无限重试、每一分花费都有据可查。
+Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系统**的编码工厂。它实现了"自治软件公司"架构蓝图的 V6 核心：Market Scout 从互联网信号中收割机会候选，PM 写出 PRD，Architect 将其拆成任务图（DAG），工厂再拉起相互隔离的编码 Agent，用确定性的机器闸门验证每一次改动，由独立评审 Agent 把关，失败自动修复，**只有真正通过验证的代码才会合并进 `main`**——绝不静默合入、不无限重试、每一分花费都有据可查。发布的产品经金丝雀阶梯自动回滚护栏上线，用户遥测经 Analytics Agent 回流，最后由 Portfolio CEO 对整个产品组合做 Build / Scale / Kill 决策并把预算重新分配给赢家。
 
 设计哲学是 **Agent 组织 + 持久化工作流 + 独立验证系统**，而不是"一个万能 Agent 包办一切"。编码（coder）、验证（verifier）、评审（reviewer）、预算（budget）等角色彼此隔离，**没有任何单一 Agent 掌握最终真相**。
 
@@ -31,6 +31,8 @@ Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系�
 - **`factory deploy` CLI（V5）** —— `factory deploy deployment_config.json` 产出 `deployments.json` + `deployments.md`（阶段、决策 `LIVE` / `ROLLED_BACK`、失败阶段与原因）。
 - **Analytics Agent（V5）** —— 把遥测（traffic / signup / activation / retention / errors / support / feature requests / revenue / infra cost）转成 signals、issues 与 recommendations（`Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill`），重新进入 Planner → Coding 闭环。
 - **`factory analyze` CLI（V5）** —— `factory analyze metrics.json` 产出 `analytics.json` + `analytics.md`，带总体健康度（`good` / `degraded` / `critical`）。
+- **Portfolio CEO Agent（V6）** —— 工厂顶层：不再只优化单一产品，而是经营一个达尔文式产品组合——扫描每个产品的状态文件（`analytics.json` / `deployments.json` / `validations.json`，UTF-8 BOM 兼容）并做出 BUILD / SCALE / EXPERIMENT / HOLD / KILL 决策，带执行优先级；KILL 释放预算、SCALE 追加投入。
+- **`factory portfolio` CLI（V6）** —— `factory portfolio <组合目录>` 产出 `portfolio.json` + `portfolio.md`（组合根目录下每个子目录视为一个产品），闭环成形：scout → validate → build → deploy → analyze → portfolio。
 
 ## 架构
 
@@ -104,6 +106,9 @@ factory deploy deployment_config.json
 
 # 14)（V5）把用户遥测转成下一轮迭代输入
 factory analyze metrics.json
+
+# 15)（V6）对整个产品组合运行 Portfolio CEO（Build / Scale / Kill）
+factory portfolio examples/v6_smoke/products
 ```
 
 > **退出码契约**：`factory run` 仅在所有任务都达到 `DONE` 时返回 `0`；任何 `BLOCKED` 或部分产物返回 `1`——可以直接接入 CI 判定。
@@ -129,11 +134,11 @@ factory analyze metrics.json
 ## 测试与静态检查
 
 ```bash
-python -m pytest tests -q          # 170 passed, 1 skipped（v5.0.0，Py3.11 实测）
+python -m pytest tests -q          # 185 passed, 1 skipped（v6.0.0，Py3.11 实测）
 python -m ruff check factory tests # 确定性 lint 基线：0 告警
 ```
 
-覆盖范围：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，耗尽 → 硬 `BLOCKED`）、验证管线、崩溃恢复（中断任务自动复位续跑）、审计账本、执行墙钟护栏、fail-closed 闸门、里程碑推进（资格校验 + 断点续推）、完整 E2E（预埋缺陷 → 修复 → 合并 → `main` 最终自洽），以及 scout 后端（recipe/web/非法名）、scout→plan 管线、WebBackend 降级、Validation Engine 闸门（证据/KILL、无数据 TEST、转化 BUILD/KILL、Devil's Advocate 反对意见、CLI 契约）、Deployment 阶梯（gate 失败/金丝雀指标回退 → 自动回滚、CLI 契约）、Analytics 规则引擎（健康判定、issue/recommendation 产出、CLI 契约）。
+覆盖范围：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，耗尽 → 硬 `BLOCKED`）、验证管线、崩溃恢复（中断任务自动复位续跑）、审计账本、执行墙钟护栏、fail-closed 闸门、里程碑推进（资格校验 + 断点续推）、完整 E2E（预埋缺陷 → 修复 → 合并 → `main` 最终自洽），以及 scout 后端（recipe/web/非法名）、scout→plan 管线、WebBackend 降级、Validation Engine 闸门（证据/KILL、无数据 TEST、转化 BUILD/KILL、Devil's Advocate 反对意见、CLI 契约）、Deployment 阶梯（gate 失败/金丝雀指标回退 → 自动回滚、CLI 契约）、Analytics 规则引擎（健康判定、issue/recommendation 产出、CLI 契约）、Portfolio CEO 决策（信号优先级、预算归一化、CLI 契约）。
 
 CI（`.github/workflows/ci.yml`）在 Python 3.11 / 3.12 上运行：`ruff check` + `pytest --cov=factory`。
 
@@ -208,12 +213,13 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## 项目状态
 
+- **v6.0.0** —— V6 发布：Portfolio CEO（`factory portfolio`）根据每个产品的状态文件（analytics / deployments / validations）对 N 个产品做 BUILD / SCALE / EXPERIMENT / HOLD / KILL 决策，带执行优先级与归一化预算分配。蓝图 V0→V6 全部完成：scout → validate → build → deploy → analyze → portfolio 闭环成形，用户数据回流 CEO 形成持续决策循环。
 - **v5.0.0** —— V5 发布：Deployment Agent（阶梯发布 `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1/5/25/100 → LIVE`，gate 失败或金丝雀 error/latency/conversion 回退时自动回滚；`factory deploy` CLI）+ Analytics Agent（遥测 → signals / issues / recommendations `Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill` 重新进入 Planner → Coding；`factory analyze` CLI，健康度 `good` / `degraded` / `critical`）。
 - **v4.0.0** —— V4 发布：Validation Engine 把 scout 机会候选转成 BUILD / TEST / KILL 决策——确定性证据门 + 转化门、Devil's Advocate 反对意见、Judge 置信度；`factory validate` CLI（validations.json/.md，`--conversion` 喂入模拟实验）。
 - **v3.0.0** —— V3 发布：Market Scout Agent（`factory scout`），recipe/web/OpenAI 三种后端，WebBackend 真实抓取 Reddit/GitHub + 防御性降级，`factory scout --plan` 打通 scout → plan 闭环（opportunities.json → PRD + 任务图）。
 - **v2.0.0** —— V2 发布：PM Agent（问题描述 → PRD）、Architect Agent（PRD → 任务图）、`factory plan` CLI、按账户隔离的预算账本唯一约束 + 旧库幂等迁移。`factory plan "<目标>"` 产出的 PRD + 任务图可直接喂给 `factory run`。
 - **v1.0.0** —— V1 核心发布：任务图工厂、worktree 隔离、机器验证闸门、评审、预算护栏、崩溃恢复、审计账本、里程碑推进、CI 退出码契约、可插拔 LLM 后端，并附正式路线图（`docs/ROADMAP.md`）与变更日志（`CHANGELOG.md`）。
-- V5 之后的路线图（Portfolio CEO）见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。
+- 完整路线图见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。V6 之后的演进方向：LLM 驱动判断、真实多产品部署与组合回测。
 
 ## License
 
