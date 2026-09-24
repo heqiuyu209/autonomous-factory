@@ -1,12 +1,14 @@
 """Agent registry - the factory's staff directory."""
 from __future__ import annotations
 
+from .architect import ArchitectAgent
 from .coder import CoderAgent, RecipeBackend
 from .pm import PMAgent
 from .reviewer import ReviewerAgent
 
 __all__ = [
     "AgentRegistry",
+    "ArchitectAgent",
     "CoderAgent",
     "ReviewerAgent",
     "RecipeBackend",
@@ -31,6 +33,7 @@ class AgentRegistry:
     @classmethod
     def default(cls) -> "AgentRegistry":
         reg = cls()
+        reg.register("architect", ArchitectAgent())
         reg.register("coder", CoderAgent())
         reg.register("pm", PMAgent())
         reg.register("reviewer", ReviewerAgent())
