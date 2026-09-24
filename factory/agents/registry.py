@@ -2,9 +2,16 @@
 from __future__ import annotations
 
 from .coder import CoderAgent, RecipeBackend
+from .pm import PMAgent
 from .reviewer import ReviewerAgent
 
-__all__ = ["AgentRegistry", "CoderAgent", "ReviewerAgent", "RecipeBackend"]
+__all__ = [
+    "AgentRegistry",
+    "CoderAgent",
+    "ReviewerAgent",
+    "RecipeBackend",
+    "PMAgent",
+]
 
 
 class AgentRegistry:
@@ -25,5 +32,6 @@ class AgentRegistry:
     def default(cls) -> "AgentRegistry":
         reg = cls()
         reg.register("coder", CoderAgent())
+        reg.register("pm", PMAgent())
         reg.register("reviewer", ReviewerAgent())
         return reg
