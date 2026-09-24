@@ -87,6 +87,8 @@ _ADD_COLUMNS: tuple[tuple[str, str, str], ...] = (
 def _ensure_schema(engine) -> None:
     from sqlalchemy import inspect, text
 
+    _migrate_legacy_budget_ledger(engine)
+
     inspector = inspect(engine)
     existing = {
         t: {c["name"] for c in inspector.get_columns(t)}
@@ -97,6 +99,104 @@ def _ensure_schema(engine) -> None:
             if table not in existing or column in existing[table]:
                 continue
             conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}'))
+
+
+def _migrate_legacy_budget_ledger(engine) -> None:
+    """SQLite-only: converge budget_ledger onto the (account_id, ref_type,
+    ref_id) unique key.
+
+    The original schema constrained ledger refs globally. A second project
+    re-running the same task ref ("T001#1") then hits UNIQUE even though it
+    is a different account. SQLite cannot drop a table-level UNIQUE
+    constraint, so rebuild the table whenever the legacy autoindex (or no
+    correct one) is detected. Idempotent: after the rebuild the correct
+    autoindex exists and the migration is a no-op.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+    from sqlalchemy import text
+
+    def _autoindex_cols(conn) -> list[list[str]]:
+        rows = conn.execute(
+            text(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='index' AND tbl_name='budget_ledger' "
+                "AND name LIKE 'sqlite_autoindex%'"
+            )
+        ).fetchall()
+        out: list[list[str]] = []
+        for (name,) in rows:
+            cols = conn.execute(
+                text(f'PRAGMA index_info("{name}")')
+            ).fetchall()
+            out.append([c[2] for c in cols])
+        return out
+
+    with engine.connect() as conn:
+        if any(
+            sorted(cols) == ["account_id", "ref_id", "ref_type"]
+            for cols in _autoindex_cols(conn)
+        ):
+            return
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE budget_ledger_new ("
+                "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "
+                "account_id VARCHAR(64) NOT NULL, "
+                "ref_type VARCHAR(16) NOT NULL, "
+                "ref_id VARCHAR(64) NOT NULL, "
+                "cost_tokens FLOAT DEFAULT 0, "
+                "cost_usd FLOAT DEFAULT 0, "
+                "cost_runtime_s FLOAT DEFAULT 0, "
+                "agent VARCHAR(64) DEFAULT '', "
+                "note TEXT DEFAULT '', "
+                "created_at DATETIME, "
+                "CONSTRAINT uq_budget_ledger_account_ref "
+                "UNIQUE (account_id, ref_type, ref_id), "
+                "FOREIGN KEY(account_id) REFERENCES budget_accounts (id) "
+                "ON DELETE CASCADE"
+                ")"
+            )
+        )
+        # Copy only columns the legacy table actually has; anything missing
+        # falls back to the new table's DEFAULT (e.g. cost_runtime_s).
+        old_cols = [
+            c[1]
+            for c in conn.execute(
+                text('PRAGMA table_info("budget_ledger")')
+            ).fetchall()
+        ]
+        _LEDGER_COLS = (
+            "id",
+            "account_id",
+            "ref_type",
+            "ref_id",
+            "cost_tokens",
+            "cost_usd",
+            "cost_runtime_s",
+            "agent",
+            "note",
+            "created_at",
+        )
+        copy_cols = [c for c in _LEDGER_COLS if c in old_cols]
+        conn.execute(
+            text(
+                f"INSERT INTO budget_ledger_new ({', '.join(copy_cols)}) "
+                f"SELECT {', '.join(copy_cols)} FROM budget_ledger"
+            )
+        )
+        conn.execute(text("DROP TABLE budget_ledger"))
+        conn.execute(
+            text("ALTER TABLE budget_ledger_new RENAME TO budget_ledger")
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX ix_budget_ledger_account_id "
+                "ON budget_ledger (account_id)"
+            )
+        )
 
 
 

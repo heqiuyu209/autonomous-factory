@@ -608,7 +608,21 @@ class FactoryOrchestrator:
     ) -> None:
         """Append one auditable spend row. Every charge call leaves a row,
         even a zero-cost one, so the ledger is a complete attempt history
-        instead of a lossy summary."""
+        instead of a lossy summary.
+
+        The write is idempotent per (account, ref): crash recovery re-runs a
+        task from attempt 1, which would otherwise collide with the UNIQUE
+        constraint on (ref_type, ref_id) left by the first attempt. Keeping
+        the first row preserves the original audit trail; a later duplicate
+        carries no new information (same attempt index, same work).
+        """
+        existing = (
+            session.query(BudgetLedger)
+            .filter_by(account_id=account_id, ref_type="task", ref_id=ref)
+            .first()
+        )
+        if existing is not None:
+            return
         session.add(
             BudgetLedger(
                 account_id=account_id,

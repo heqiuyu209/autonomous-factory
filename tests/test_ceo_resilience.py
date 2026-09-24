@@ -14,7 +14,7 @@ Maps to production risks found in the V1 baseline review:
 """
 from __future__ import annotations
 
-from factory.db import session_scope
+from factory.db import init_db, session_scope
 from factory.models import BudgetAccount, BudgetLedger, TaskRecord
 from factory.orchestrator import FactoryOrchestrator
 from factory.schemas.task_graph import TaskDef, TaskGraph
@@ -126,3 +126,27 @@ def test_budget_spend_is_durable_in_ledger(sample_graph_path, workspace):
         assert any(r.cost_tokens > 0 for r in rows)
         assert all(r.cost_usd == 0.0 for r in rows)  # recipe backend is free
         assert any(r.cost_runtime_s >= 0 for r in rows)  # wall-clock rows too
+
+
+def test_ledger_write_is_idempotent(sample_graph_path, workspace):
+    """Crash recovery re-runs a task from attempt 1; re-charging the same
+    (account, ref) must not violate the UNIQUE constraint on the ledger."""
+    init_db()
+    graph = TaskGraph.load(sample_graph_path)
+    orch = FactoryOrchestrator(workspace_root=workspace)
+    with session_scope() as s:
+        account_id = orch._ensure_budget_account(s, graph.project_id)
+        orch._write_ledger(
+            s, account_id, ref="T001#1", tokens=10, agent="coder", note="attempt 1"
+        )
+        s.flush()
+        orch._write_ledger(
+            s, account_id, ref="T001#1", tokens=10, agent="coder", note="attempt 1"
+        )
+        s.flush()  # must not raise IntegrityError
+        rows = (
+            s.query(BudgetLedger)
+            .filter_by(account_id=account_id, ref_id="T001#1")
+            .all()
+        )
+        assert len(rows) == 1

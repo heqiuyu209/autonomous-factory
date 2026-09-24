@@ -15,6 +15,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +45,17 @@ class BudgetAccount(Base):
 
 class BudgetLedger(Base):
     __tablename__ = "budget_ledger"
+
+    # Ledger rows are unique per (account, ref): crash recovery re-runs a
+    # task from attempt 1 and must be able to re-charge the same ref without
+    # violating uniqueness, while two different projects (accounts) may
+    # legitimately share task refs like "T001#1". The original schema made
+    # (ref_type, ref_id) globally unique - a multi-project killer.
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id", "ref_type", "ref_id", name="uq_budget_ledger_account_ref"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     account_id: Mapped[str] = mapped_column(
