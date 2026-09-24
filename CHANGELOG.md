@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-24
+
+### Added
+
+- PM agent: turns a natural-language problem statement into a structured PRD
+  (with explicit constraints and acceptance criteria).
+- Architect agent: turns a PRD into a ready-to-run task graph (DAG) with file
+  allow-lists targeting real code packages.
+- `factory plan` CLI: runs PM → Architect in one command, producing
+  `prd.md` + `task_graph.json` that feed directly into `factory run`.
+
+### Changed
+
+- Budget ledger uniqueness is now scoped per account
+  (`UNIQUE(account_id, ref_type, ref_id)`) instead of globally, so multiple
+  projects / re-runs no longer collide; legacy databases are migrated
+  idempotently on startup (`_migrate_legacy_budget_ledger`).
+- Version aligned to `2.0.0` for the V2 release; README (EN/zh-CN) updated with
+  V2 features, quick-start `factory plan` usage, and new test baseline.
+
+### Notes
+
+- V2 completes the "problem statement → automatic product" stage of the
+  roadmap: PM + Architect + plan CLI, reusing the V1 coding/verification
+  pipeline unchanged.
+- Test baseline: 116 passed, 1 skipped (Python 3.11); ruff clean on `E4/E7/E9/F/I`.
+
 ## [1.0.0] - 2026-09-24
 
 ### Added

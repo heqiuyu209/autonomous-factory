@@ -1,9 +1,9 @@
 # Autonomous Software Factory
 **English** | [简体中文](README.zh-CN.md)
 
-> Turn a **goal** into a **verified application** — an autonomous software venture factory (V1 core).
+> Turn a **goal** into a **verified application** — an autonomous software venture factory (V2 core).
 
-Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V1 core of an "autonomous software company" blueprint: given a PRD and a task graph (DAG), it spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
+Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V2 core of an "autonomous software company" blueprint: given a problem statement, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
 
 The design philosophy: **Agent Organization + Durable Workflow + Independent Verification System**, not a monolithic "one agent to do everything". Each role (coder, verifier, reviewer, budget) is separated so that no single agent holds the final truth.
 
@@ -20,6 +20,10 @@ The design philosophy: **Agent Organization + Durable Workflow + Independent Ver
 - **Audit ledger** — every coder attempt (tokens + runtime) is mirrored into a durable `BudgetLedger` with per-project accounts.
 - **Milestone promotion** — `factory promote` walks a fully built, fully reviewed project through the state machine (… → `PRODUCTION`) with eligibility checks and audit rows; resumable after a crash.
 - **CI-ready exit codes** — `factory run` returns `0` only when the task graph completes (`DONE`); any `BLOCKED`/partial outcome returns `1`.
+- **PM agent (V2)** — turns a natural-language problem statement into a structured PRD (`factory plan` step 1), with explicit constraints and acceptance criteria.
+- **Architect agent (V2)** — turns a PRD into a ready-to-run task graph (DAG) with file allow-lists, targeting real code packages (step 2 of `factory plan`).
+- **`factory plan` CLI (V2)** — `factory plan "<goal>"` runs PM → Architect in one command, producing `prd.md` + `task_graph.json` that feed straight into `factory run`.
+- **Per-account audit ledger (V2 hardening)** — budget uniqueness is scoped per account so multiple projects never collide; legacy databases migrate idempotently.
 
 ## Architecture
 
@@ -71,6 +75,10 @@ factory promote p_demo_calc
 
 # 7) Run your own project from a task graph
 factory run <task_graph.json> --prd <prd.md>
+
+# 8) (V2) Turn a problem statement into PRD + task graph, then run it
+factory plan "Build a CLI todo app with persistence" --out-dir examples/my_plan
+factory run examples/my_plan/task_graph.json --prd examples/my_plan/prd.md
 ```
 
 > **Exit-code contract**: `factory run` returns `0` only when every task reaches `DONE`. Any `BLOCKED` or partial outcome returns `1` — wire it straight into CI.
@@ -96,7 +104,7 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 103 passed, 1 skipped (v1.0.0, Py3.11)
+python -m pytest tests -q          # 116 passed, 1 skipped (v2.0.0, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
@@ -175,6 +183,7 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
+- **v2.0.0** — V2 released: PM agent (problem statement → PRD), Architect agent (PRD → task graph), `factory plan` CLI, per-account budget-ledger uniqueness with idempotent legacy migration. `factory plan "<goal>"` now produces PRD + task graph that feed directly into `factory run`.
 - **v1.0.0** — V1 core released: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, milestone promotion, CI exit-code contract, pluggable LLM backends, plus formal roadmap (`docs/ROADMAP.md`) and changelog (`CHANGELOG.md`).
 - The roadmap beyond V1 (PM + Architect, market scouting, validation engine, deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
 
