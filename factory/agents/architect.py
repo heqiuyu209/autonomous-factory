@@ -86,11 +86,15 @@ class RecipeBackend:
                     ),
                     dependencies=[],
                     acceptance=[
-                        "product code exists and is importable",
+                        "sample_app package exists and is importable",
                         "unit tests cover the MVP behaviour",
                         "all unit tests pass",
                     ],
-                    files=["src/", "tests/"],
+                    files=[
+                        "sample_app/__init__.py",
+                        "sample_app/calc.py",
+                        "tests/test_calc.py",
+                    ],
                     meta={"target": "all"},
                 ),
                 TaskDef(
@@ -106,7 +110,7 @@ class RecipeBackend:
                         "tests cover the MVP behaviour end to end",
                         "no regressions on merged main",
                     ],
-                    files=["tests/"],
+                    files=["tests/test_calc.py"],
                     meta={"target": "tests"},
                 ),
             ],
