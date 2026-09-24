@@ -1,13 +1,14 @@
-"""Autonomous Software Venture Factory - V2 core.
+"""Autonomous Software Venture Factory - V3 core.
 
-Implements the PLANNING + SOFTWARE FACTORY layers of the blueprint:
+Implements the MARKET + PLANNING + SOFTWARE FACTORY layers of the blueprint:
 
-    PM / Architect  ->  Planner/Coder/Reviewer/QA  ->  a task-graph driven
-    pipeline that turns a problem statement into a working, verified
-    application (PRD -> task graph -> code).
+    Market Scout  ->  PM / Architect  ->  Planner/Coder/Reviewer/QA  ->  a
+    pipeline that turns internet signals into opportunity candidates and a
+    problem statement into a working, verified application
+    (scout -> PRD -> task graph -> code).
 
 The key architectural invariant (blueprint §20):
     The agent that writes code is NOT the one that verifies it.
 """
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"

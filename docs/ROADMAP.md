@@ -138,9 +138,12 @@ Agent Organization + Durable Workflow + Independent Verification System
 - 输出：自动产品（复用 V1 的编码与验证流水线）
 - 关键决策：PM 产出的 PRD 与 Architect 产出的任务图是否需要人工确认环节（设计为可配置）
 
-**V3**
+**V3（已封版 v3.0.0）**
 - 新增：Market Scout Agent（Reddit / GitHub / Search / Reviews / Forums / SEO 数据源）
 - 输出：机会候选列表
+- 已实现：RecipeBackend / OpenAIBackend / WebBackend（真实 Reddit/GitHub 抓取 +
+  防御性降级）、`factory scout` CLI（写 opportunities.json/.md）、
+  `factory scout --plan` 打通 scout → plan 闭环
 
 **V4**
 - 新增：Validation Engine（Opportunity Engine 聚类排序 + Product Council GO/TEST/KILL 决策）
@@ -158,9 +161,10 @@ Agent Organization + Durable Workflow + Independent Verification System
 
 ## 4. 当前定位
 
-- 仓库当前处于 **V1 封版态（v1.0.0）**。
-- 下一步开发目标：**V2 — 加入 PM + Architect，从问题描述 → 自动产品**。
-- V1 的编码/验证/修复流水线是 V2 的底座，V2 不重写它，只在其前段插入新的能力模块。
+- 仓库当前处于 **V3 封版态（v3.0.0）**。
+- 下一步开发目标：**V4 — Validation Engine，从机会候选自动验证市场需求**。
+- V1-V3 的编码/验证/修复流水线与市场侦察能力是 V4 的底座，V4 不重写它们，
+  只在其前段插入机会评估与验证决策模块。
 
 ---
 

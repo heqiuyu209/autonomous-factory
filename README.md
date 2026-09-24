@@ -1,9 +1,9 @@
 # Autonomous Software Factory
 **English** | [简体中文](README.zh-CN.md)
 
-> Turn a **goal** into a **verified application** — an autonomous software venture factory (V2 core).
+> Turn a **goal** into a **verified application** — an autonomous software venture factory (V3 core).
 
-Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V2 core of an "autonomous software company" blueprint: given a problem statement, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
+Autonomous Software Factory is a task-graph-driven coding factory with an **independent verification system**. It implements the V3 core of an "autonomous software company" blueprint: a Market Scout harvests internet signals into opportunity candidates, PM writes a PRD, Architect turns it into a task graph (DAG), then the factory spawns isolated coding agents, validates every change with deterministic machine gates, runs an independent reviewer, repairs failures, and only merges to `main` what actually passes — no silent merges, no unlimited retries, no unaccounted spend.
 
 The design philosophy: **Agent Organization + Durable Workflow + Independent Verification System**, not a monolithic "one agent to do everything". Each role (coder, verifier, reviewer, budget) is separated so that no single agent holds the final truth.
 
@@ -24,6 +24,8 @@ The design philosophy: **Agent Organization + Durable Workflow + Independent Ver
 - **Architect agent (V2)** — turns a PRD into a ready-to-run task graph (DAG) with file allow-lists, targeting real code packages (step 2 of `factory plan`).
 - **`factory plan` CLI (V2)** — `factory plan "<goal>"` runs PM → Architect in one command, producing `prd.md` + `task_graph.json` that feed straight into `factory run`.
 - **Per-account audit ledger (V2 hardening)** — budget uniqueness is scoped per account so multiple projects never collide; legacy databases migrate idempotently.
+- **Market Scout Agent (V3)** — harvests internet signals into opportunity candidates; pluggable backends: `recipe` (deterministic, no key), `web` (real Reddit/GitHub public APIs with defensive timeout fallback), and OpenAI (via `OPENAI_API_KEY`).
+- **`factory scout` CLI (V3)** — `factory scout [--backend recipe|web]` writes `opportunities.json` + `opportunities.md`; `factory scout --plan` runs PM → Architect on a chosen candidate, closing the scout → plan loop.
 
 ## Architecture
 
@@ -79,6 +81,13 @@ factory run <task_graph.json> --prd <prd.md>
 # 8) (V2) Turn a problem statement into PRD + task graph, then run it
 factory plan "Build a CLI todo app with persistence" --out-dir examples/my_plan
 factory run examples/my_plan/task_graph.json --prd examples/my_plan/prd.md
+
+# 9) (V3) Scout internet signals for opportunity candidates
+factory scout --backend recipe --out-dir examples/v3_scout
+factory scout --backend web --out-dir examples/v3_scout   # real Reddit/GitHub signals
+
+# 10) (V3) Scout + plan in one shot (PM → Architect on a candidate)
+factory scout --plan --out-dir examples/v3_scout --plan-out-dir examples/v3_scout/plan
 ```
 
 > **Exit-code contract**: `factory run` returns `0` only when every task reaches `DONE`. Any `BLOCKED` or partial outcome returns `1` — wire it straight into CI.
@@ -104,11 +113,11 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 116 passed, 1 skipped (v2.0.0, Py3.11)
+python -m pytest tests -q          # 131 passed, 1 skipped (v3.0.0, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
-Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), and a full E2E (seeded defect → repair → merge → self-consistent `main`).
+Coverage: task-graph validation (incl. UTF-8 BOM tolerance), state machine, permission policy, budgets (token + runtime, exhaustion → hard `BLOCKED`), verification pipeline, crash recovery (interrupted tasks auto-reset & resume), audit ledger, execution wall-clock guardrail, fail-closed gates, milestone promotion (eligibility + resumability), a full E2E (seeded defect → repair → merge → self-consistent `main`), scout backends (recipe/web/unknown), scout→plan pipeline, and WebBackend degradation.
 
 CI (`.github/workflows/ci.yml`) runs on Python 3.11 / 3.12: `ruff check` + `pytest --cov=factory`.
 
@@ -183,9 +192,10 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
+- **v3.0.0** — V3 released: Market Scout Agent (`factory scout`) with recipe/web/OpenAI backends, real Reddit/GitHub scraping via WebBackend with defensive degradation, and `factory scout --plan` closing the scout → plan loop (opportunities.json → PRD + task graph).
 - **v2.0.0** — V2 released: PM agent (problem statement → PRD), Architect agent (PRD → task graph), `factory plan` CLI, per-account budget-ledger uniqueness with idempotent legacy migration. `factory plan "<goal>"` now produces PRD + task graph that feed directly into `factory run`.
 - **v1.0.0** — V1 core released: task-graph factory, worktree isolation, machine verification gates, reviewer, budget guardrails, crash recovery, audit ledger, milestone promotion, CI exit-code contract, pluggable LLM backends, plus formal roadmap (`docs/ROADMAP.md`) and changelog (`CHANGELOG.md`).
-- The roadmap beyond V1 (PM + Architect, market scouting, validation engine, deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
+- The roadmap beyond V3 (validation engine, deployment + analytics, portfolio CEO) is captured in [docs/ROADMAP.md](docs/ROADMAP.md). This repo ships the factory itself; each roadmap stage ships as a tagged major version.
 
 ## License
 

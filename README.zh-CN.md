@@ -1,8 +1,8 @@
 # Autonomous Software Factory
 
-> 把「目标」变成「验证通过的应用」——自治软件创业工厂（V2 核心）。
+> 把「目标」变成「验证通过的应用」——自治软件创业工厂（V3 核心）。
 
-Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系统**的编码工厂。它实现了"自治软件公司"架构蓝图的 V2 核心：给定一段问题描述，PM 写出 PRD，Architect 将其拆成任务图（DAG），工厂再拉起相互隔离的编码 Agent，用确定性的机器闸门验证每一次改动，由独立评审 Agent 把关，失败自动修复，**只有真正通过验证的代码才会合并进 `main`**——绝不静默合入、不无限重试、每一分花费都有据可查。
+Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系统**的编码工厂。它实现了"自治软件公司"架构蓝图的 V3 核心：Market Scout 从互联网信号中收割机会候选，PM 写出 PRD，Architect 将其拆成任务图（DAG），工厂再拉起相互隔离的编码 Agent，用确定性的机器闸门验证每一次改动，由独立评审 Agent 把关，失败自动修复，**只有真正通过验证的代码才会合并进 `main`**——绝不静默合入、不无限重试、每一分花费都有据可查。
 
 设计哲学是 **Agent 组织 + 持久化工作流 + 独立验证系统**，而不是"一个万能 Agent 包办一切"。编码（coder）、验证（verifier）、评审（reviewer）、预算（budget）等角色彼此隔离，**没有任何单一 Agent 掌握最终真相**。
 
@@ -23,6 +23,8 @@ Autonomous Software Factory 是一个**任务图驱动**、带**独立验证系�
 - **Architect Agent（V2）** —— 把 PRD 拆解为可直接运行的任务图（DAG），带文件白名单，面向真实代码包（`factory plan` 第二步）。
 - **`factory plan` CLI（V2）** —— `factory plan "<目标>"` 一条命令跑完 PM → Architect，产出 `prd.md` + `task_graph.json`，直接喂给 `factory run`。
 - **按账户隔离的审计账本（V2 加固）** —— 预算唯一约束按账户隔离，多项目不再冲突；旧库幂等迁移。
+- **Market Scout Agent（V3）** —— 从互联网信号收割机会候选；可插拔后端：`recipe`（确定性、免 Key）、`web`（真实 Reddit/GitHub 公开 API + 防御性超时降级）、OpenAI（设 `OPENAI_API_KEY` 启用）。
+- **`factory scout` CLI（V3）** —— `factory scout [--backend recipe|web]` 产出 `opportunities.json` + `opportunities.md`；`factory scout --plan` 对选中候选跑 PM → Architect，打通 scout → plan 闭环。
 
 ## 架构
 
@@ -77,6 +79,13 @@ factory run <task_graph.json> --prd <prd.md>
 # 8)（V2）把问题描述变成 PRD + 任务图，然后直接运行
 factory plan "做一个带持久化的 CLI 待办应用" --out-dir examples/my_plan
 factory run examples/my_plan/task_graph.json --prd examples/my_plan/prd.md
+
+# 9)（V3）侦察互联网信号，产出机会候选
+factory scout --backend recipe --out-dir examples/v3_scout
+factory scout --backend web --out-dir examples/v3_scout   # 真实 Reddit/GitHub 信号
+
+# 10)（V3）侦察 + 规划一条命令打通（对候选跑 PM → Architect）
+factory scout --plan --out-dir examples/v3_scout --plan-out-dir examples/v3_scout/plan
 ```
 
 > **退出码契约**：`factory run` 仅在所有任务都达到 `DONE` 时返回 `0`；任何 `BLOCKED` 或部分产物返回 `1`——可以直接接入 CI 判定。
@@ -102,11 +111,11 @@ factory run examples/my_plan/task_graph.json --prd examples/my_plan/prd.md
 ## 测试与静态检查
 
 ```bash
-python -m pytest tests -q          # 116 passed, 1 skipped（v2.0.0，Py3.11 实测）
+python -m pytest tests -q          # 131 passed, 1 skipped（v3.0.0，Py3.11 实测）
 python -m ruff check factory tests # 确定性 lint 基线：0 告警
 ```
 
-覆盖范围：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，耗尽 → 硬 `BLOCKED`）、验证管线、崩溃恢复（中断任务自动复位续跑）、审计账本、执行墙钟护栏、fail-closed 闸门、里程碑推进（资格校验 + 断点续推），以及完整 E2E（预埋缺陷 → 修复 → 合并 → `main` 最终自洽）。
+覆盖范围：任务图校验（含 UTF-8 BOM 兼容）、状态机、权限策略、预算（token + 运行时长，耗尽 → 硬 `BLOCKED`）、验证管线、崩溃恢复（中断任务自动复位续跑）、审计账本、执行墙钟护栏、fail-closed 闸门、里程碑推进（资格校验 + 断点续推）、完整 E2E（预埋缺陷 → 修复 → 合并 → `main` 最终自洽），以及 scout 后端（recipe/web/非法名）、scout→plan 管线、WebBackend 降级。
 
 CI（`.github/workflows/ci.yml`）在 Python 3.11 / 3.12 上运行：`ruff check` + `pytest --cov=factory`。
 
@@ -181,9 +190,10 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## 项目状态
 
+- **v3.0.0** —— V3 发布：Market Scout Agent（`factory scout`），recipe/web/OpenAI 三种后端，WebBackend 真实抓取 Reddit/GitHub + 防御性降级，`factory scout --plan` 打通 scout → plan 闭环（opportunities.json → PRD + 任务图）。
 - **v2.0.0** —— V2 发布：PM Agent（问题描述 → PRD）、Architect Agent（PRD → 任务图）、`factory plan` CLI、按账户隔离的预算账本唯一约束 + 旧库幂等迁移。`factory plan "<目标>"` 产出的 PRD + 任务图可直接喂给 `factory run`。
 - **v1.0.0** —— V1 核心发布：任务图工厂、worktree 隔离、机器验证闸门、评审、预算护栏、崩溃恢复、审计账本、里程碑推进、CI 退出码契约、可插拔 LLM 后端，并附正式路线图（`docs/ROADMAP.md`）与变更日志（`CHANGELOG.md`）。
-- V1 之后的路线图（PM + Architect、市场侦察、验证引擎、部署与分析、Portfolio CEO）见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。
+- V3 之后的路线图（验证引擎、部署与分析、Portfolio CEO）见 [docs/ROADMAP.md](docs/ROADMAP.md)。本仓库交付的是"工厂"本身；每个路线图阶段以打 tag 的大版本形式发布。
 
 ## License
 

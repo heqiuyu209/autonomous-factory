@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-09-24
+
+### Added
+
+- Market Scout Agent: turns internet signals into opportunity candidates.
+  - `factory/agents/scout.py`: RecipeBackend (deterministic, no API key) and
+    OpenAIBackend (enabled via `OPENAI_API_KEY`), plus
+    `factory/sources.py` WebBackend that fetches real signals from Reddit /
+    GitHub public APIs with defensive timeout fallback to RecipeBackend.
+  - `factory scout` CLI: writes `opportunities.json` + `opportunities.md`
+    (recipe or web backend; unknown backend names rejected with exit code 1).
+  - `factory scout --plan` / `--plan-opp` / `--plan-out-dir`: shared
+    `_plan_pipeline` (PM → Architect) turns a chosen opportunity into
+    `prd.md` + `task_graph.json`, closing the scout → plan loop.
+- WebBackend real-data scraping: builds candidates from live Reddit/GitHub
+  signals (pains carry source URLs, `evidence_count=1`); fully-empty results
+  degrade to RecipeBackend and are labeled `recipe`.
+
+### Changed
+
+- Version aligned to `3.0.0` for the V3 release; README (EN/zh-CN) updated with
+  V3 features, quick-start `factory scout` usage, and new test baseline.
+
+### Notes
+
+- V3 completes the "internet → opportunity candidates → plan" stage of the
+  blueprint; V4 Validation Engine is the next roadmap stage.
+
 ## [2.0.0] - 2026-09-24
 
 ### Added
