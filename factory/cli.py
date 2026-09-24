@@ -389,6 +389,41 @@ def analyze(
     typer.echo(f"Health       : {report.health} — {report.summary}")
 
 
+@app.command("portfolio")
+def portfolio(
+    portfolio_dir: Path = typer.Argument(..., help="portfolio root; each subdirectory is one product"),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="output dir for portfolio artifacts"),
+) -> None:
+    """V6: Portfolio CEO — Build / Scale / Kill across N products."""
+    from .agents.base import AgentInput
+    from .agents.portfolio import PortfolioCEO
+
+    if not portfolio_dir.is_dir():
+        typer.echo(f"portfolio root not found: {portfolio_dir}")
+        raise typer.Exit(1)
+
+    engine = PortfolioCEO()
+    out = engine.run(
+        AgentInput(
+            agent="portfolio",
+            project_id="portfolio",
+            task_id="portfolio",
+            goal="decide Build/Scale/Experiment/Hold/Kill across the portfolio",
+            constraints=[],
+            workdir=str(portfolio_dir),
+            context={"out_dir": str(out_dir) if out_dir else None},
+        )
+    )
+    if out.status != "completed":
+        typer.echo(f"Portfolio failed: {out.summary}")
+        raise typer.Exit(1)
+
+    target = (out_dir or portfolio_dir)
+    typer.echo(f"Decisions    : {target / 'portfolio.json'}")
+    typer.echo(f"Summary      : {target / 'portfolio.md'}")
+    typer.echo(out.summary)
+
+
 def main() -> None:  # pragma: no cover
     app()
 
