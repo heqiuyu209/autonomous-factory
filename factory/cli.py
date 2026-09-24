@@ -173,16 +173,22 @@ def scout(
     plan: bool = typer.Option(False, "--plan", help="auto-build factory plan from the top candidate"),
     plan_opp: str | None = typer.Option(None, "--plan-opp", help="opportunity_id to plan (default: top candidate)"),
     plan_out_dir: Path | None = typer.Option(None, "--plan-out-dir", help="plan output dir (default: <out_dir>/plans/<pid>)"),
+    backend: str = typer.Option("recipe", "--backend", help="scout backend: recipe | web"),
 ) -> None:
     """V3: scout a market direction into opportunity candidates (Market Scout)."""
     from .agents.base import AgentInput
-    from .agents.scout import MarketScoutAgent, _slug
+    from .agents.scout import MarketScoutAgent, RecipeBackend, WebBackend, _slug
+
+    if backend not in ("recipe", "web"):
+        typer.echo(f"unknown backend: {backend} (expected recipe|web)")
+        raise typer.Exit(1)
 
     pid = project_id or _slug(query)
     workdir = out_dir / pid
     workdir.mkdir(parents=True, exist_ok=True)
 
-    out = MarketScoutAgent().run(
+    agent = MarketScoutAgent(backend=RecipeBackend() if backend == "recipe" else WebBackend())
+    out = agent.run(
         AgentInput(
             agent="scout",
             project_id=pid,

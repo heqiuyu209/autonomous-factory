@@ -37,6 +37,24 @@ def test_scout_command_writes_candidates(tmp_path: Path):
     assert "Candidates" in out.output
 
 
+def test_scout_command_rejects_unknown_backend(tmp_path: Path):
+    out = runner.invoke(
+        app,
+        [
+            "scout",
+            "ai meeting notes",
+            "--out-dir",
+            str(tmp_path),
+            "--project-id",
+            "p_scout_bad_backend",
+            "--backend",
+            "nope",
+        ],
+    )
+    assert out.exit_code == 1, out.output
+    assert "unknown backend" in out.output
+
+
 def test_scout_plan_builds_factory_plan(tmp_path: Path):
     """V3->V2 bridge: scout --plan must auto-build PRD + task graph for the top candidate."""
     out = runner.invoke(

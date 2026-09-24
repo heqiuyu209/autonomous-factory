@@ -1,0 +1,88 @@
+[
+  {
+    "opportunity_id": "opp_p_ai_meeting_notes",
+    "hypothesis": "基于 5 条 reddit, github 真实信号，「ai meeting notes」存在未被充分满足的需求，值得验证",
+    "pains": [
+      {
+        "pain_id": "pain_p_ai_meeting_notes_1",
+        "persona": "github",
+        "problem": "Zackriya-Solutions/meetily — Privacy first, AI meeting assistant with 4x faster Parakeet/Whisper live transcription, speaker diarization, and Ollama",
+        "frequency": "unknown",
+        "severity": 0.5,
+        "current_solution": "existing tooling",
+        "willingness_to_pay": 0.4,
+        "evidence_count": 1,
+        "sources": [
+          "https://github.com/Zackriya-Solutions/meetily"
+        ]
+      },
+      {
+        "pain_id": "pain_p_ai_meeting_notes_2",
+        "persona": "github",
+        "problem": "Natively-AI-assistant/natively-cluely-ai-assistant — Natively — Free open-source AI meeting assistant, interview copilot, and note taker. The best alternative to Cluely, Ott",
+        "frequency": "unknown",
+        "severity": 0.5,
+        "current_solution": "existing tooling",
+        "willingness_to_pay": 0.4,
+        "evidence_count": 1,
+        "sources": [
+          "https://github.com/Natively-AI-assistant/natively-cluely-ai-assistant"
+        ]
+      },
+      {
+        "pain_id": "pain_p_ai_meeting_notes_3",
+        "persona": "github",
+        "problem": "Onyx-Dev-Labs/doodle-note — Privacy-first, local-first meeting capture and AI notes.",
+        "frequency": "unknown",
+        "severity": 0.5,
+        "current_solution": "existing tooling",
+        "willingness_to_pay": 0.4,
+        "evidence_count": 1,
+        "sources": [
+          "https://github.com/Onyx-Dev-Labs/doodle-note"
+        ]
+      },
+      {
+        "pain_id": "pain_p_ai_meeting_notes_4",
+        "persona": "github",
+        "problem": "open-software-network/os-clovy — Private AI on your Mac. Chat, dictation, meeting notes, and a local agent in one open source workspace.",
+        "frequency": "unknown",
+        "severity": 0.5,
+        "current_solution": "existing tooling",
+        "willingness_to_pay": 0.4,
+        "evidence_count": 1,
+        "sources": [
+          "https://github.com/open-software-network/os-clovy"
+        ]
+      },
+      {
+        "pain_id": "pain_p_ai_meeting_notes_5",
+        "persona": "github",
+        "problem": "ZapYap-com/note67 — A private, local meeting notes assistant. Capture audio, transcribe locally with Whisper, and generate AI-powered summar",
+        "frequency": "unknown",
+        "severity": 0.5,
+        "current_solution": "existing tooling",
+        "willingness_to_pay": 0.4,
+        "evidence_count": 1,
+        "sources": [
+          "https://github.com/ZapYap-com/note67"
+        ]
+      }
+    ],
+    "score": {
+      "pain_severity": 0.6,
+      "frequency": 0.5,
+      "willingness_to_pay": 0.4,
+      "market_size": 0.5,
+      "search_demand": 0.5,
+      "competitor_weakness": 0.5,
+      "ai_advantage": 0.6,
+      "distribution_advantage": 0.4,
+      "build_cost": 0.05,
+      "acquisition_difficulty": 0.1,
+      "regulatory_risk": 0.05,
+      "competition_risk": 0.2
+    },
+    "decision": "PENDING"
+  }
+]
