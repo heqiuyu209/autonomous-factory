@@ -309,6 +309,86 @@ def _print_report(report: dict, project_id: str) -> None:
     typer.echo(f"summary: {report.get('summary', {})}")
 
 
+@app.command("deploy")
+def deploy(
+    config: Path = typer.Argument(..., help="path to deployment_config.json (gates + canary metrics)"),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="output dir for deployment artifacts"),
+) -> None:
+    """V5: walk the release ladder; roll back on any gate/metric regression."""
+    from json import loads
+
+    from .agents.base import AgentInput
+    from .agents.deployment import DeploymentEngine
+
+    cfg = loads(config.read_text(encoding="utf-8-sig"))
+    workdir = out_dir or config.parent
+    workdir.mkdir(parents=True, exist_ok=True)
+    staged = workdir / "deployment_config.json"
+    if not staged.exists() or staged.resolve() != config.resolve():
+        staged.write_text(config.read_text(encoding="utf-8-sig"), encoding="utf-8")
+
+    engine = DeploymentEngine()
+    out = engine.run(
+        AgentInput(
+            agent="deployment",
+            project_id=cfg.get("project_id", "p_unknown"),
+            task_id="deploy",
+            goal="walk the release ladder to LIVE",
+            constraints=[],
+            workdir=str(workdir),
+            context={},
+        )
+    )
+    if out.status != "completed":
+        typer.echo(f"Deployment failed: {out.summary}")
+        raise typer.Exit(1)
+    typer.echo(f"Artifacts    : {workdir / 'deployments.json'}")
+    typer.echo(f"Summary      : {workdir / 'deployments.md'}")
+    typer.echo(out.summary)
+
+
+@app.command("analyze")
+def analyze(
+    metrics: Path = typer.Argument(..., help="path to metrics.json (telemetry samples)"),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="output dir for analytics report"),
+) -> None:
+    """V5: turn user telemetry into signals / issues / next-iteration items."""
+    from json import loads
+
+    from .agents.analytics import AnalyticsEngine
+    from .schemas.analytics import MetricSample
+
+    samples = [MetricSample.model_validate(d) for d in loads(metrics.read_text(encoding="utf-8-sig"))]
+    workdir = out_dir or metrics.parent
+    workdir.mkdir(parents=True, exist_ok=True)
+    report = AnalyticsEngine().analyze(samples, metrics_path=str(metrics))
+    (workdir / "analytics.json").write_text(
+        __import__("json").dumps(report.to_json_dict(), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    lines = [
+        "# Analytics — 用户数据回流",
+        "",
+        f"> 健康度 **{report.health}**：{report.summary}",
+        "",
+        "## Signals",
+        "",
+    ]
+    for s in report.signals:
+        lines.append(f"- {s}")
+    lines += ["", "## Issues", ""]
+    for i in report.issues:
+        lines.append(f"- **{i.severity}** {i.description}")
+    lines += ["", "## 建议（进入 Planner → Coding Agents）", ""]
+    for r in report.recommendations:
+        lines.append(f"- [{r.kind}] {r.description}")
+    (workdir / "analytics.md").write_text("\n".join(lines), encoding="utf-8")
+
+    typer.echo(f"Artifacts    : {workdir / 'analytics.json'}")
+    typer.echo(f"Summary      : {workdir / 'analytics.md'}")
+    typer.echo(f"Health       : {report.health} — {report.summary}")
+
+
 def main() -> None:  # pragma: no cover
     app()
 
