@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.1] - 2026-09-25
+
+### Security
+
+- **P0 — verifier sandbox isolation**: LLM-generated code is no longer
+  executed directly on the host. Every verifier gate runs through a
+  `SandboxRunner` (`factory/sandbox.py`):
+  - `DockerRunner`: one-shot container — `--network none`, read-only
+    rootfs + read-only worktree mount, `--cap-drop ALL`,
+    `no-new-privileges`, `--tmpfs /tmp` scratch, allow-listed env via
+    `--env-file`, pinned `python:3.11-slim` image.
+  - `SubprocessRunner`: degraded fallback with allow-listed env + hard
+    timeout, used only when no container runtime is present.
+  - `FACTORY_VERIFY_SANDBOX=auto|docker|subprocess`: `docker` mode fails
+    closed when the engine is unavailable; `auto` degrades transparently.
+  - Every `GateResult` / summary reports the sandbox backend + degraded
+    flag so a fallback run is never mistaken for a containerized one.
+  - Docker availability probe now checks the daemon actually answers
+    (returncode), not just CLI presence; host `sys.executable` is
+    translated to the image interpreter inside containers.
+  - `factory/envsafe.py` extracts the shared env allow-list / secret
+    markers used by both backends.
+- **P1 — coder context injection**: task `description`, dependency task
+  summaries/artifacts and project PRD (truncated) are now passed to the
+  coder instead of a bare title.
+- **P1 — real token billing**: `AgentOutput.usage_tokens` carries the
+  provider-reported token count; budget charge/ledger prefer it over the
+  `len(summary)` heuristic.
+- **P1 — PostgreSQL driver alignment**: dependency switched to
+  `psycopg[binary]>=3.1` to match the `postgresql+psycopg://` URL.
+
+### Added
+
+- `factory/sandbox.py` + `factory/envsafe.py` (P0 isolation layer).
+- 13 new tests (`tests/test_sandbox.py`, `tests/test_security_fixes.py`):
+  docker command shape, env-file scratch redirection, selection policy,
+  fail-closed behaviour, interpreter translation, env isolation, real
+  usage propagation, context injection. Full suite 204 passed, 1 skipped.
+
 ## [6.0.0] - 2026-09-24
 
 ### Added

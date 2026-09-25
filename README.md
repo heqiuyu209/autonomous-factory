@@ -136,7 +136,7 @@ Each task can carry `acceptance` criteria and a `files` allow-list. The orchestr
 ## Testing & Static Checks
 
 ```bash
-python -m pytest tests -q          # 185 passed, 1 skipped (v6.0.0, Py3.11)
+python -m pytest tests -q          # 204 passed, 1 skipped (v6.0.1, Py3.11)
 python -m ruff check factory tests # deterministic lint baseline: 0 warnings
 ```
 
@@ -215,6 +215,7 @@ Once `OPENAI_API_KEY` is present, the coder uses the OpenAI-compatible backend i
 
 ## Status
 
+- **v6.0.1** — Security hardening release: verifier sandbox isolation (P0) — LLM-generated code runs in a networkless, read-only, capability-dropped Docker container (`FACTORY_VERIFY_SANDBOX=auto|docker|subprocess`, fail-closed in `docker` mode, transparent degraded subprocess fallback otherwise); coder context injection (description / dependency summaries / PRD); real token billing from provider usage; PostgreSQL driver aligned to `psycopg3`. Full suite 204 passed, 1 skipped.
 - **v6.0.0** — V6 released: Portfolio CEO (`factory portfolio`) deciding BUILD / SCALE / EXPERIMENT / HOLD / KILL across N products from per-product state files (analytics / deployments / validations), with execution priority and normalized budget allocation. Blueprint V0→V6 is complete: scout → validate → build → deploy → analyze → portfolio is a closed loop with user data flowing back to the CEO.
 - **v5.0.0** — V5 released: Deployment Agent (staged release ladder `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1/5/25/100 → LIVE`, automatic rollback on gate failure or canary error/latency/conversion regression; `factory deploy` CLI) + Analytics Agent (telemetry → signals / issues / recommendations `Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill` that re-enter Planner → Coding; `factory analyze` CLI with health `good` / `degraded` / `critical`).
 - **v4.0.0** — V4 released: Validation Engine turning scouted opportunities into BUILD / TEST / KILL via deterministic evidence + conversion gates, Devil's Advocate objections, Judge confidence; `factory validate` CLI (validations.json/.md, `--conversion` for simulated experiments).

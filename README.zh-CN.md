@@ -134,7 +134,7 @@ factory portfolio examples/v6_smoke/products
 ## 测试与静态检查
 
 ```bash
-python -m pytest tests -q          # 185 passed, 1 skipped（v6.0.0，Py3.11 实测）
+python -m pytest tests -q          # 204 passed, 1 skipped（v6.0.1，Py3.11 实测）
 python -m ruff check factory tests # 确定性 lint 基线：0 告警
 ```
 
@@ -213,6 +213,7 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## 项目状态
 
+- **v6.0.1** —— 安全加固版本：验证器沙箱隔离（P0）——LLM 生成的代码在断网、只读、去权能的 Docker 容器内执行（`FACTORY_VERIFY_SANDBOX=auto|docker|subprocess`，`docker` 模式不可用时 fail-closed，其余场景透明降级到受限子进程）；coder 上下文注入（任务描述 / 依赖摘要 / PRD）；按 provider 真实 token 数计费；PostgreSQL 驱动对齐 psycopg3。全量 204 passed, 1 skipped。
 - **v6.0.0** —— V6 发布：Portfolio CEO（`factory portfolio`）根据每个产品的状态文件（analytics / deployments / validations）对 N 个产品做 BUILD / SCALE / EXPERIMENT / HOLD / KILL 决策，带执行优先级与归一化预算分配。蓝图 V0→V6 全部完成：scout → validate → build → deploy → analyze → portfolio 闭环成形，用户数据回流 CEO 形成持续决策循环。
 - **v5.0.0** —— V5 发布：Deployment Agent（阶梯发布 `STAGING_SMOKE → SECURITY_GATE → PERF_GATE → CANARY_1/5/25/100 → LIVE`，gate 失败或金丝雀 error/latency/conversion 回退时自动回滚；`factory deploy` CLI）+ Analytics Agent（遥测 → signals / issues / recommendations `Bug` / `Feature` / `Experiment` / `Optimization` / `Scale` / `Kill` 重新进入 Planner → Coding；`factory analyze` CLI，健康度 `good` / `degraded` / `critical`）。
 - **v4.0.0** —— V4 发布：Validation Engine 把 scout 机会候选转成 BUILD / TEST / KILL 决策——确定性证据门 + 转化门、Devil's Advocate 反对意见、Judge 置信度；`factory validate` CLI（validations.json/.md，`--conversion` 喂入模拟实验）。
