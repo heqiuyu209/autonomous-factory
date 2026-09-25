@@ -43,7 +43,8 @@ def status_cmd(project_id: str) -> None:
 def run(
     graph: Path = typer.Argument(..., help="path to task_graph.json/yaml"),
     prd: Path | None = typer.Option(None, "--prd", help="path to PRD markdown"),
-    seed_bug: bool = typer.Option(True, "--seed-bug/--no-seed-bug"),
+    seed_bug: bool = typer.Option(False, "--seed-bug/--no-seed-bug",
+                                  help="seed a demo defect in the first task (demo-only)"),
 ) -> None:
     """Execute a project from its task graph."""
     g = TaskGraph.load(graph)
@@ -67,7 +68,7 @@ def demo() -> None:
     if not (graph_path.exists() and prd_path.exists()):
         typer.echo(f"sample project not found at {_DEMO_DIR}")
         raise typer.Exit(1)
-    run(graph_path, prd=prd_path)
+    run(graph_path, prd=prd_path, seed_bug=True)
 
 
 @app.command("promote")
