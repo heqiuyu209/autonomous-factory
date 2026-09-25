@@ -15,8 +15,10 @@ def _isolated_env(tmp_path, monkeypatch):
     configure_database(f"sqlite:///{db_path}")
     workspace = tmp_path / "ws"
     workspace.mkdir()
-    # route orchestrator default workspace into the scratch dir too
-    monkeypatch.setenv("FACTORY_WORKSPACE", str(workspace))
+    # NOTE: factory.config.settings is a frozen singleton created at import
+    # time, so monkeypatching FACTORY_WORKSPACE here would have no effect on
+    # the orchestrator's default workspace. Tests must pass workspace_root
+    # explicitly (as they all do) instead of relying on the env var.
     yield workspace
     # ensure engine doesn't hold the file open between tests
     from factory.db import _engine

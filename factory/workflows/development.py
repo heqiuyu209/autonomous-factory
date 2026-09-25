@@ -62,7 +62,7 @@ class DevelopmentWorkflow:
         project_id: str,
         graph: TaskGraph,
         *,
-        seed_bug: bool = True,
+        seed_bug: bool = False,
     ) -> dict:
         """Execute the graph; durable and resumable across crashes."""
         return self.orchestrator.run_graph(

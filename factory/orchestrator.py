@@ -86,7 +86,7 @@ class FactoryOrchestrator:
         graph: TaskGraph,
         prd_path: str | None = None,
         *,
-        seed_bug: bool = True,
+        seed_bug: bool = False,
         max_retries: int | None = None,
     ) -> dict:
         """Execute a full task graph for a project. Returns a run report."""

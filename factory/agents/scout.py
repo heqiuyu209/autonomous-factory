@@ -21,6 +21,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..policy import PolicyEngine
 from ..schemas.base import AgentOutput
 from ..schemas.opportunity import Opportunity, OpportunityScore, PainPoint
 from .base import AgentInput
@@ -200,10 +201,12 @@ class WebBackend:
 
     name = "web"
 
-    def __init__(self, fetchers: dict[str, Fetcher] | None = None):
-        from ..sources import SOURCE_FETCHERS
+    def __init__(self, fetchers: dict[str, Fetcher] | None = None, policy=None):
+        from ..sources import SOURCE_FETCHERS, SOURCE_HOSTS
 
         self._fetchers = fetchers or dict(SOURCE_FETCHERS)
+        self._source_hosts = dict(SOURCE_HOSTS)
+        self._policy = policy or PolicyEngine()
 
     def run(self, task: AgentInput) -> AgentOutput:
         workdir = Path(task.workdir)
@@ -213,6 +216,12 @@ class WebBackend:
             wanted = list(self._fetchers) if not task.constraints else []
         signals: list[Signal] = []
         for source in wanted:
+            # Capability gate: the market-scout role may only contact its
+            # granted hosts. An explicit PolicyViolation fails the scout
+            # (fail-closed) instead of silently reaching an unknown host.
+            host = self._source_hosts.get(source)
+            if host is not None:
+                self._policy.check_internet("market-scout", host)
             try:
                 signals.extend(self._fetchers[source](task.goal, limit=5))
             except Exception:  # noqa: BLE001 - a source must never break the scout

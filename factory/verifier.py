@@ -229,10 +229,6 @@ class Verifier:
                 break  # fail-fast: no point running the rest on a broken tree
         return results
 
-    @property
-    def all_green(self) -> bool:
-        raise NotImplementedError  # use run_all().  kept for clarity
-
     def summarize(self, results: list[GateResult]) -> dict:
         return {
             "passed": all(r.passed or r.skipped for r in results),

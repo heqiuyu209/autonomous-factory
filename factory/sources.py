@@ -101,3 +101,10 @@ SOURCE_FETCHERS: dict[str, Fetcher] = {
     "reddit": fetch_reddit,
     "github": fetch_github,
 }
+
+# Canonical host per source, consumed by the market-scout capability gate
+# (PolicyEngine.check_internet) so web scouting respects the role allow-list.
+SOURCE_HOSTS: dict[str, str] = {
+    "reddit": "www.reddit.com",
+    "github": "api.github.com",
+}

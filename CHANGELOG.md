@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.2] - 2026-09-25
+
+### Fixed
+
+- **scout LLM output parsing**: `OpenAIBackend` now strips ```json fences
+  (outermost `{...}` slice) before parsing, same as the Architect backend;
+  real LLM output wrapped in code fences no longer fails the scout.
+- **seed_bug default alignment**: `DevelopmentWorkflow.build` and
+  `FactoryOrchestrator.run_graph` now default `seed_bug=False`, matching the
+  CLI `--no-seed-bug` default; only the `demo` command opts in explicitly.
+- **market-scout internet policy wired**: `WebBackend` now enforces
+  `PolicyEngine.check_internet` against the `market-scout` allow-list
+  (`SOURCE_HOSTS` in `factory/sources.py`) and fails closed on a denied
+  host instead of silently fetching. Regression test added.
+- **test isolation honesty**: removed the `FACTORY_WORKSPACE` monkeypatch
+  in `tests/conftest.py` that had no effect on the frozen `settings`
+  singleton; tests must pass `workspace_root` explicitly (as they all do).
+- **dead API removed**: dropped `Verifier.all_green` (raised
+  `NotImplementedError` on a public property).
+
 ## [6.0.1] - 2026-09-25
 
 ### Security

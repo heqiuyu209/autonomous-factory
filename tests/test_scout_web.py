@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from factory.agents.base import AgentInput
 from factory.agents.scout import MarketScoutAgent, WebBackend
 from factory.sources import Signal, fetch_github, fetch_reddit
@@ -91,6 +93,25 @@ def test_web_backend_ignores_unknown_source_and_falls_back(tmp_path: Path):
     backend, summary = _run_web(task, {"reddit": _FakeFetchers.reddit})
     assert "degraded to recipe candidates" in summary
     assert backend.name == "web"
+
+
+def test_web_backend_enforces_internet_policy(tmp_path: Path):
+    """The market-scout capability gate is wired: a denied host must fail
+    closed instead of silently fetching."""
+    from factory.policy import Capability, PolicyEngine, PolicyViolation
+
+    task = AgentInput(
+        agent="scout",
+        project_id="p_policy",
+        task_id="scout",
+        goal="x",
+        constraints=["reddit"],
+        workdir=str(tmp_path),
+    )
+    strict = PolicyEngine({"market-scout": Capability(internet=())})
+    backend = WebBackend(fetchers={"reddit": _FakeFetchers.reddit}, policy=strict)
+    with pytest.raises(PolicyViolation):
+        backend.run(task)
 
 
 def test_fetch_reddit_parses_posts():
