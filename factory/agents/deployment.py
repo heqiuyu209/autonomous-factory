@@ -20,6 +20,7 @@ from ..schemas.deployment import (
     CanaryMetrics,
     DeploymentDecision,
     GateResult,
+    ReleaseStage,
 )
 from .base import AgentInput
 
@@ -42,6 +43,12 @@ class DeploymentEngine:
     ) -> DeploymentDecision:
         metrics = canary_metrics or {}
         decision = DeploymentDecision(project_id=project_id, status="DEPLOYING")
+        if not gates and not metrics:
+            decision.status = "ROLLED_BACK"
+            decision.rolled_back_at = ReleaseStage.STAGING_SMOKE
+            decision.rollback_reason = "no gates configured; refusing to publish unverified release"
+            decision.evidence = ["fail-closed: no release gates were provided"]
+            return decision
         passed_by_stage = {g.stage.value: g.passed for g in gates}
 
         # build the passed map from provided gates only (unknown stages absent
@@ -100,10 +107,16 @@ class DeploymentEngine:
         }
         decision = self.deploy(cfg.get("project_id", "p_unknown"), gates, metrics)
         _write_deployments(workdir, decision)
+        if decision.status == "ROLLED_BACK":
+            return AO(
+                status="failed",
+                summary="release ROLLED_BACK"
+                + (f" at {decision.rolled_back_at.value}" if decision.rolled_back_at else ""),
+                artifacts=[DEPLOYMENTS_JSON, DEPLOYMENTS_MD],
+            )
         return AO(
             status="completed",
-            summary=f"release {decision.status}"
-            + (f" (rolled back at {decision.rolled_back_at})" if decision.rolled_back_at else ""),
+            summary=f"release {decision.status}",
             artifacts=[DEPLOYMENTS_JSON, DEPLOYMENTS_MD],
         )
 

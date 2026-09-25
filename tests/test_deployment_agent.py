@@ -104,6 +104,11 @@ class TestDeploymentAgentRun:
         p.write_text(json.dumps(cfg), encoding="utf-8")
         return p
 
+    def test_no_gates_fails_closed(self):
+        decision = DeploymentEngine().deploy("p_x", [])
+        assert decision.status == "ROLLED_BACK"
+        assert "no gates" in decision.rollback_reason
+
     def test_run_writes_artifacts(self, tmp_path):
         from factory.agents.base import AgentInput
         from factory.agents.deployment import DeploymentEngine
@@ -188,5 +193,27 @@ def test_cli_deploy_rollback(tmp_path):
         text=True,
         cwd=Path(__file__).resolve().parents[1],
     )
-    assert out.returncode == 0, out.stderr
+    assert out.returncode != 0, out.stdout
     assert "ROLLED_BACK" in out.stdout
+
+
+def test_cli_deploy_no_gates_fails_closed(tmp_path):
+    cfg = tmp_path / "deployment_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "project_id": "p_cli",
+                "gates": [],
+                "canary_metrics": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = subprocess.run(
+        [sys.executable, "-m", "factory.cli", "deploy", str(cfg)],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+    assert out.returncode != 0, out.stdout
+    assert "Deployment failed" in out.stdout
