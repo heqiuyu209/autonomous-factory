@@ -9,14 +9,21 @@ approved, a deterministic pipeline must be green:
 V1 ships the gates that run anywhere (syntax, unit tests, lint when the
 tool is installed); heavier gates are registered but report SKIPPED, and
 the framework makes adding a gate a one-function change.
+
+Every gate runs inside a SandboxRunner (factory.sandbox): container
+isolation (networkless, read-only) when available, or a degraded
+allow-listed subprocess otherwise. The backend is recorded per gate so a
+degraded verification is never mistaken for a containerized one.
 """
 from __future__ import annotations
 
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+
+from .envsafe import _verifier_env  # noqa: F401  (re-exported for tests)
+from .sandbox import SandboxResult, SandboxRunner, get_runner
 
 
 @dataclass
@@ -25,6 +32,8 @@ class GateResult:
     passed: bool
     output: str = ""
     skipped: bool = False
+    sandbox: str = "subprocess"
+    degraded: bool = True
 
     def as_dict(self) -> dict:
         return {
@@ -32,51 +41,70 @@ class GateResult:
             "passed": self.passed,
             "skipped": self.skipped,
             "output": self.output[:4000],
+            "sandbox": self.sandbox,
+            "degraded": self.degraded,
         }
 
 
 GateFn = Callable[[Path, "Verifier"], GateResult]
 
 
-def _run(cmd: list[str], cwd: Path, timeout: int = 300) -> tuple[int, str]:
-    proc = subprocess.run(
-        cmd,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-    tail = (proc.stdout or "")[-2000:] + "\n" + (proc.stderr or "")[-2000:]
-    return proc.returncode, tail
+def _run(
+    v: "Verifier",
+    cmd: list[str],
+    workdir: Path,
+    timeout: int = 300,
+) -> tuple[int, str, SandboxResult]:
+    result = v.runner.run(cmd, workdir, timeout=timeout)
+    return result.code, result.output, result
 
 
 # --------------------------------------------------------------------------
 # Gate implementations
 # --------------------------------------------------------------------------
-def gate_syntax(workdir: Path, _v: "Verifier") -> GateResult:
+def _result(
+    v: "Verifier",
+    name: str,
+    passed: bool,
+    out: str,
+    skipped: bool = False,
+) -> GateResult:
+    return GateResult(
+        name,
+        passed,
+        out,
+        skipped=skipped,
+        sandbox=v.runner.backend,
+        degraded=v.runner.degraded,
+    )
+
+
+def gate_syntax(workdir: Path, v: "Verifier") -> GateResult:
     py_files = sorted(workdir.rglob("*.py"))
     # ignore vendored/venv dirs
     py_files = [p for p in py_files if ".venv" not in p.parts]
     if not py_files:
         # a legitimately non-code task (docs / config / data) is not a
         # syntax failure - mirror the unit-tests gate's SKIP semantics.
-        return GateResult(
-            "syntax", True, "no python files in this worktree; skipped", skipped=True
+        return _result(
+            v, "syntax", True, "no python files in this worktree; skipped", skipped=True
         )
-    cmd = [sys.executable, "-m", "py_compile"] + [str(p) for p in py_files]
-    code, out = _run(cmd, workdir)
-    return GateResult("syntax", code == 0, out)
+    # -B: never write .pyc. The worktree is mounted read-only in the docker
+    # sandbox; py_compile must not try to write next to the sources.
+    cmd = [sys.executable, "-B", "-m", "py_compile"] + [str(p) for p in py_files]
+    code, out, _sbx = _run(v, cmd, workdir)
+    return _result(v, "syntax", code == 0, out)
 
 
-def gate_unit_tests(workdir: Path, _v: "Verifier") -> GateResult:
+def gate_unit_tests(workdir: Path, v: "Verifier") -> GateResult:
     if not _test_files(workdir):
         # no tests in this slice yet - e.g. scaffold-only task in a DAG.
-        return GateResult(
-            "unit-tests", True, "no tests in this worktree; skipped", skipped=True
+        return _result(
+            v, "unit-tests", True, "no tests in this worktree; skipped", skipped=True
         )
     cmd = [sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider"]
-    code, out = _run(cmd, workdir, timeout=600)
-    return GateResult("unit-tests", code == 0, out)
+    code, out, _sbx = _run(v, cmd, workdir, timeout=600)
+    return _result(v, "unit-tests", code == 0, out)
 
 
 def _test_files(workdir: Path) -> list[Path]:
@@ -95,7 +123,7 @@ def _test_files(workdir: Path) -> list[Path]:
     return found
 
 
-def gate_lint(workdir: Path, _v: "Verifier") -> GateResult:
+def gate_lint(workdir: Path, v: "Verifier") -> GateResult:
     if _tool_exists("ruff"):
         # --isolated --no-cache: a DETERMINISTIC verification gate. Without
         # --isolated, ruff walks up from the worktree to find a pyproject /
@@ -106,21 +134,21 @@ def gate_lint(workdir: Path, _v: "Verifier") -> GateResult:
         # and vice versa. --isolated pins ONE semantics everywhere, and
         # --no-cache prevents stale on-disk cache verdicts from flipping
         # green/red across runs. Verdicts must depend only on the code.
-        code, out = _run(
-            ["ruff", "check", "--isolated", "--no-cache", "."], workdir
+        code, out, _sbx = _run(
+            v, ["ruff", "check", "--isolated", "--no-cache", "."], workdir
         )
-        return GateResult("lint", code == 0, out)
+        return _result(v, "lint", code == 0, out)
     if _tool_exists("flake8"):
-        code, out = _run(["flake8", "--isolated", "."], workdir)
-        return GateResult("lint", code == 0, out)
-    return GateResult("lint", True, "lint tool not installed; skipped", skipped=True)
+        code, out, _sbx = _run(v, ["flake8", "--isolated", "."], workdir)
+        return _result(v, "lint", code == 0, out)
+    return _result(v, "lint", True, "lint tool not installed; skipped", skipped=True)
 
 
-def gate_typecheck(workdir: Path, _v: "Verifier") -> GateResult:
+def gate_typecheck(workdir: Path, v: "Verifier") -> GateResult:
     if _tool_exists("mypy"):
-        code, out = _run(["mypy", "."], workdir)
-        return GateResult("typecheck", code == 0, out)
-    return GateResult("typecheck", True, "mypy not installed; skipped", skipped=True)
+        code, out, _sbx = _run(v, ["mypy", "."], workdir)
+        return _result(v, "typecheck", code == 0, out)
+    return _result(v, "typecheck", True, "mypy not installed; skipped", skipped=True)
 
 
 def _tool_exists(name: str) -> bool:
@@ -130,9 +158,20 @@ def _tool_exists(name: str) -> bool:
 
 
 class Verifier:
-    """Runs configured gates in order; any failure blocks the merge."""
+    """Runs configured gates in order; any failure blocks the merge.
 
-    def __init__(self, gates: tuple[str, ...] | None = None):
+    `runner` is the SandboxRunner every gate executes under (container
+    isolation or degraded allow-listed subprocess). A runner is resolved
+    once at construction so a whole verification uses one consistent
+    isolation level, and so a missing mandatory container fails loudly
+    before any gate runs.
+    """
+
+    def __init__(
+        self,
+        gates: tuple[str, ...] | None = None,
+        runner: "SandboxRunner" | None = None,
+    ):
         self._registry: dict[str, GateFn] = {
             "syntax": gate_syntax,
             "test": gate_unit_tests,
@@ -140,6 +179,9 @@ class Verifier:
             "typecheck": gate_typecheck,
         }
         self._gates = gates or ("syntax", "test")
+        self.runner = runner if runner is not None else get_runner()
+        self.backend = self.runner.backend
+        self.degraded = self.runner.degraded
 
     def register(self, name: str, fn: GateFn) -> None:
         self._registry[name] = fn
@@ -166,13 +208,23 @@ class Verifier:
                         "check FACTORY_VERIFY_GATES".format(
                             name, sorted(self._registry)
                         ),
+                        sandbox=self.backend,
+                        degraded=self.degraded,
                     )
                 )
                 break
             try:
                 results.append(self._registry[name](workdir, self))
             except Exception as exc:  # pragma: no cover - defensive
-                results.append(GateResult(name, False, repr(exc)))
+                results.append(
+                    GateResult(
+                        name,
+                        False,
+                        repr(exc),
+                        sandbox=self.backend,
+                        degraded=self.degraded,
+                    )
+                )
             if not results[-1].passed and not results[-1].skipped:
                 break  # fail-fast: no point running the rest on a broken tree
         return results
@@ -185,4 +237,8 @@ class Verifier:
         return {
             "passed": all(r.passed or r.skipped for r in results),
             "gates": [r.as_dict() for r in results],
+            "sandbox": {
+                "backend": self.backend,
+                "degraded": self.degraded,
+            },
         }

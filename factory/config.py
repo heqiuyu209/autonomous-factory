@@ -66,6 +66,13 @@ class Settings:
             if g.strip()
         )
     )
+    # Sandbox backend for gate execution: auto | docker | subprocess.
+    # auto uses docker when usable and degrades to a locked-down host
+    # subprocess otherwise; docker fails closed when the CLI is unusable;
+    # subprocess is an explicit opt-out (always degraded).
+    verify_sandbox: str = field(
+        default_factory=lambda: os.getenv("FACTORY_VERIFY_SANDBOX", "auto")
+    )
 
     # --- governance -----------------------------------------------------
     # Worktree isolation seed directory (created per project/task).

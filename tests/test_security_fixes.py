@@ -14,10 +14,10 @@ from pathlib import Path
 
 from factory.agents.base import AgentInput
 from factory.agents.coder import RecipeBackend
+from factory.envsafe import _VERIFIER_SAFE_ENV_KEYS, _verifier_env
 from factory.orchestrator import FactoryOrchestrator
 from factory.schemas.base import AgentOutput
 from factory.schemas.task_graph import TaskGraph
-from factory.verifier import _VERIFIER_SAFE_ENV_KEYS, _verifier_env
 
 
 # --------------------------------------------------------------------------
@@ -53,6 +53,7 @@ def test_verifier_env_strips_secrets(monkeypatch):
 def test_verifier_gate_subprocess_gets_clean_env(monkeypatch, tmp_path):
     """End-to-end: a gate subprocess cannot see a host secret even when the
     untrusted code deliberately tries to read it."""
+    from factory.sandbox import SubprocessRunner
     from factory.verifier import Verifier, _run
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-injected-secret")
@@ -70,13 +71,15 @@ def test_verifier_gate_subprocess_gets_clean_env(monkeypatch, tmp_path):
         "    assert os.environ.get('OPENAI_API_KEY') is None\n",
         encoding="utf-8",
     )
-    code, _ = _run(
+    v = Verifier(runner=SubprocessRunner(), gates=("syntax", "test"))
+    code, _out, _sbx = _run(
+        v,
         [sys.executable, "-c", "import os; assert os.environ.get('OPENAI_API_KEY') is None"],
         workdir,
     )
     assert code == 0
-    results = Verifier(gates=("syntax", "test")).run_all(workdir)
-    assert Verifier(gates=("syntax", "test")).summarize(results)["passed"]
+    results = v.run_all(workdir)
+    assert v.summarize(results)["passed"]
 
 
 # --------------------------------------------------------------------------
@@ -131,7 +134,16 @@ def test_orchestrator_injects_description_deps_prd(
     import json
 
     graph = TaskGraph.load(sample_graph_path)
-    orch = FactoryOrchestrator(workspace_root=workspace)
+    from factory.sandbox import SubprocessRunner
+    from factory.verifier import Verifier
+
+    orch = FactoryOrchestrator(
+        workspace_root=workspace,
+        verifier=Verifier(
+            runner=SubprocessRunner(),
+            gates=("syntax", "test", "lint"),
+        ),
+    )
     log = workspace / "capture.jsonl"
     backend = _CaptureBackend(log)
     # deterministic backend; no seed bug so the run is a single pass
@@ -152,7 +164,7 @@ def test_orchestrator_injects_description_deps_prd(
         prd_path="prd.md",
         seed_bug=False,
     )
-    assert report["summary"]["state"] == "DONE"
+    assert report["summary"]["state"] == "DONE", report
 
     captured = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
     by_id = {c["task_id"]: c for c in captured}
