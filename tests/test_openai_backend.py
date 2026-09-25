@@ -78,23 +78,20 @@ def _task(tmp_path, goal="build a module") -> AgentInput:
     )
 
 
-def _set_payload(server, data: str, status: int = 200):
-    _StubHandler.payload = (
-        json.dumps(
-            {
-                "id": "cmpl-stub",
-                "object": "chat.completion",
-                "created": 0,
-                "model": "stub",
-                "choices": [
-                    {"index": 0, "message": {"role": "assistant", "content": data},
-                     "finish_reason": "stop"}
-                ],
-            }
-        )
-        if status == 200
-        else ""
-    )
+def _set_payload(server, data: str, status: int = 200, usage: dict | None = None):
+    body = {
+        "id": "cmpl-stub",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "stub",
+        "choices": [
+            {"index": 0, "message": {"role": "assistant", "content": data},
+             "finish_reason": "stop"}
+        ],
+    }
+    if usage is not None:
+        body["usage"] = usage
+    _StubHandler.payload = json.dumps(body) if status == 200 else ""
     _StubHandler.status_code = status
 
 
@@ -110,6 +107,25 @@ def test_openai_success_writes_files_into_isolation(tmp_path, llm_stub):
     assert set(out.artifacts) == {"app/mod.py", "tests/test_mod.py"}
     assert (tmp_path / "app" / "mod.py").read_text(encoding="utf-8") == "print(1)"
     assert (tmp_path / "tests" / "test_mod.py").exists()
+
+
+def test_openai_usage_tokens_propagate_to_output(tmp_path, llm_stub):
+    """The REAL provider usage must reach the AgentOutput so the
+    orchestrator can charge it instead of len(summary) - the P1 billing
+    fix. An upstream that omits usage leaves usage_tokens None (fallback)."""
+    _set_payload(
+        llm_stub,
+        '{"files": {"app/mod.py": "print(1)"}}',
+        usage={"prompt_tokens": 77, "completion_tokens": 23, "total_tokens": 100},
+    )
+    out = OpenAIBackend().run(_task(tmp_path))
+    assert out.status == "completed"
+    assert out.usage_tokens == 100
+
+    # no usage block in the response -> None -> heuristic fallback
+    _set_payload(llm_stub, '{"files": {"app/mod.py": "print(1)"}}')
+    out2 = OpenAIBackend().run(_task(tmp_path))
+    assert out2.usage_tokens is None
 
 
 def test_openai_malformed_content_is_failed_attempt(tmp_path, llm_stub):

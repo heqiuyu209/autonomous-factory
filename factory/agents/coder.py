@@ -204,7 +204,15 @@ class OpenAIBackend:
                 status="failed",
                 summary=f"LLM backend error: {exc!r}",
             )
-        return self._apply(task, content or "{}")
+        out = self._apply(task, content or "{}")
+        if out.status == "completed":
+            # Charge the REAL usage from the provider, not a summary-length
+            # heuristic. usage may be absent (some compatible endpoints), in
+            # which case it stays None and the orchestrator falls back.
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                out.usage_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        return out
 
     @staticmethod
     def _apply(task: AgentInput, payload: str) -> AgentOutput:

@@ -35,6 +35,7 @@ from .models import (
 )
 from .policy import PolicyEngine, PolicyViolation
 from .safety import ensure_safe_id, ensure_safe_rel, safe_join
+from .schemas.base import AgentOutput
 from .schemas.task_graph import TaskDef, TaskGraph
 from .state_machine import (
     ProjectState,
@@ -327,6 +328,7 @@ class FactoryOrchestrator:
                     project_id=project_id,
                     task_id=tdef.id,
                     goal=tdef.title,
+                    description=tdef.description,
                     acceptance_criteria=tdef.acceptance,
                     workdir=str(worktree),
                     context={
@@ -334,6 +336,13 @@ class FactoryOrchestrator:
                         "seed_bug": seed_bug and attempt == 1,
                         "target": (tdef.meta or {}).get("target", "all"),
                         "meta": tdef.meta or {},
+                        # Full design context: what predecessors produced
+                        # and the project PRD, so a coder codes against the
+                        # real product intent instead of the task title.
+                        "deps": self._collect_dep_context(
+                            session, project_id, graph, tdef
+                        ),
+                        "prd": self._read_prd(session, project_id),
                     },
                 )
                 # policy enforcement happens at the boundary
@@ -388,7 +397,7 @@ class FactoryOrchestrator:
                     return result
                 elapsed_s = time.monotonic() - attempt_start
                 budget.charge(
-                    tokens=len(last_output.summary),
+                    tokens=self._charged_tokens(last_output),
                     usd=0.0,
                     agent="coder",
                     note=f"attempt {attempt}",
@@ -405,7 +414,7 @@ class FactoryOrchestrator:
                     session,
                     account_id,
                     ref=f"{tdef.id}#{attempt}",
-                    tokens=len(last_output.summary),
+                    tokens=self._charged_tokens(last_output),
                     agent="coder",
                     note=f"attempt {attempt}",
                 )
@@ -499,6 +508,14 @@ class FactoryOrchestrator:
                 # --- merge to main: the ONLY place the factory writes main
                 self._merge_to_main(worktree, project_root / "main", tdef.files)
                 _set_task_state(TaskState.DONE)
+                # Persist what this task produced: dependency tasks later
+                # read this as their "deps" context. materialise a NEW dict
+                # so SQLAlchemy tracks the JSON column change.
+                rec.detail = {
+                    **rec.detail,
+                    "summary": last_output.summary,
+                    "artifacts": last_output.artifacts,
+                }
                 rec.finished_at = datetime.now(timezone.utc)
                 session.flush()
                 result["files"] = tdef.files
@@ -510,6 +527,62 @@ class FactoryOrchestrator:
             result["verdict"] = "BLOCKED"
             result["reason"] = str(exc)
             return result
+
+    @staticmethod
+    def _charged_tokens(out: AgentOutput) -> int:
+        """Charge the REAL usage when the backend reported it; fall back to
+        the summary-length heuristic only when usage is unknown (None)."""
+        if out.usage_tokens is not None:
+            return int(out.usage_tokens)
+        return len(out.summary)
+
+    def _collect_dep_context(
+        self, session, project_id: str, graph: TaskGraph, tdef: TaskDef
+    ) -> list[dict]:
+        """Summaries of completed dependency tasks, so a coder sees what its
+        predecessors actually produced instead of coding against
+        assumptions. Dependencies still in-flight yield nothing here - the
+        orchestrator's readiness gate only runs a task once all deps are
+        DONE, so any dep with a row is a completed one."""
+        if not tdef.dependencies:
+            return []
+        rows = (
+            session.query(TaskRecord)
+            .filter(
+                TaskRecord.project_id == project_id,
+                TaskRecord.task_id.in_(tdef.dependencies),
+            )
+            .all()
+        )
+        out: list[dict] = []
+        for r in rows:
+            detail = r.detail or {}
+            out.append(
+                {
+                    "task_id": r.task_id,
+                    "title": r.title,
+                    "state": r.state,
+                    "summary": detail.get("summary", ""),
+                    "artifacts": detail.get("artifacts", []),
+                }
+            )
+        return out
+
+    def _read_prd(self, session, project_id: str) -> str:
+        """Read the project PRD file (trimmed) so the coder sees the product
+        intent, not just the one-line task title. Never raises: an
+        unreadable PRD degrades to empty context, not a build failure."""
+        proj = session.get(Project, project_id)
+        if proj is None or not proj.prd_path:
+            return ""
+        p = Path(proj.prd_path)
+        if not p.exists():
+            return ""
+        try:
+            text = p.read_text(encoding="utf-8-sig", errors="replace")
+        except Exception:  # pragma: no cover - filesystem defensive
+            return ""
+        return text[:4000]
 
     @staticmethod
     def _collect_produced(worktree: Path, expected: list[str]) -> list[str]:

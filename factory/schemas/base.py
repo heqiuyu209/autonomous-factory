@@ -40,3 +40,7 @@ class AgentOutput(BaseModel):
     risks: list[Risk] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     raw: dict[str, Any] = Field(default_factory=dict)
+    # Real token usage reported by the model backend (e.g. completion.usage).
+    # The orchestrator charges THIS instead of len(summary) when present; a
+    # None means "unknown" and falls back to the summary-length heuristic.
+    usage_tokens: int | None = None

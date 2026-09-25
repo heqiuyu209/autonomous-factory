@@ -15,6 +15,7 @@ class AgentInput(BaseModel):
     project_id: str
     task_id: str
     goal: str
+    description: str = ""  # full TaskDef.description (design intent, PRD context)
     constraints: list[str] = Field(default_factory=list)
     acceptance_criteria: list[str] = Field(default_factory=list)
     available_tools: list[str] = Field(default_factory=list)
