@@ -75,16 +75,26 @@ def test_permanent_coder_failure_blocks_not_crash(tmp_path, monkeypatch):
 
 
 class FailOnceBackend:
-    name = "fail-once"
+    """Fails the first attempt, succeeds on the second.
 
-    def __init__(self):
-        self._calls = 0
+    Attempts run in separate spawned processes (hard-timeout isolation), so
+    instance state cannot travel between attempts. The attempt counter is
+    carried in a workdir marker file instead.
+    """
+
+    name = "fail-once"
 
     def run(self, task):
         from pathlib import Path
 
-        self._calls += 1
-        if self._calls == 1:
+        # Keep the counter OUTSIDE the worktree: the orchestrator drops the
+        # tree (rmtree) between failed attempts, which would erase in-tree
+        # state. A sibling marker survives resets and crosses process
+        # boundaries.
+        marker = Path(task.workdir).parent / f".fail_once_count_{task.task_id}"
+        attempt_no = int(marker.read_text(encoding="utf-8")) if marker.exists() else 0
+        marker.write_text(str(attempt_no + 1), encoding="utf-8")
+        if attempt_no == 0:
             return AgentOutput(status="failed", summary="LLM transient error")
         # second attempt succeeds and genuinely writes the declared file, so
         # the machine verifier + rule reviewer can both pass

@@ -1,0 +1,18 @@
+﻿{
+    "project_id":  "p_meetily",
+    "health":  "good",
+    "signals":  [
+                    "signup +12%"
+                ],
+    "summary":  "healthy growth",
+    "recommendations":  [
+                            {
+                                "priority":  8,
+                                "description":  "double down on distribution",
+                                "kind":  "Scale"
+                            }
+                        ],
+    "issues":  [
+
+               ]
+}

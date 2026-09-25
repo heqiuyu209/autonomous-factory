@@ -149,13 +149,29 @@ class OpenAIBackend:
     name = "openai"
 
     def __init__(self, model: str | None = None):
+        self._model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self._client = self._build_client()
+
+    @staticmethod
+    def _build_client():
         import openai  # lazy import; optional dependency
 
-        self._client = openai.OpenAI(
+        return openai.OpenAI(
             api_key=os.environ["OPENAI_API_KEY"],
             base_url=os.environ.get("OPENAI_BASE_URL"),
         )
-        self._model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+    def __getstate__(self):
+        # The httpx client behind openai.OpenAI is not picklable; the factory
+        # moves coder attempts into a spawned process (hard-timeout isolation),
+        # so we drop the live client here and rebuild it on the other side.
+        state = self.__dict__.copy()
+        state.pop("_client", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._client = self._build_client()
 
     def run(self, task: AgentInput) -> AgentOutput:
         system = (

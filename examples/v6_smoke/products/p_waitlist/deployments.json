@@ -1,0 +1,15 @@
+﻿{
+    "gates":  [
+
+              ],
+    "project_id":  "p_waitlist",
+    "canary_metrics":  {
+
+                       },
+    "rolled_back_at":  "CANARY_1",
+    "rollback_reason":  "canary CANARY_1 regression: error=0.120",
+    "evidence":  [
+
+                 ],
+    "status":  "ROLLED_BACK"
+}

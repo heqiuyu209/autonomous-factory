@@ -6,13 +6,29 @@ every review APPROVE - and an ineligible project is left untouched.
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
+from factory.agents import AgentInput, CoderAgent
 from factory.db import session_scope
 from factory.models import Project, RunRecord
 from factory.schemas.task_graph import TaskGraph
 from factory.state_machine import StateMachineError
 from factory.workflows import DevelopmentWorkflow
+
+
+class HangingBackend:
+    name = "hang"
+
+    def run(self, task: AgentInput) -> None:  # pragma: no cover
+        time.sleep(60)
+        raise AssertionError("unreachable")
+
+
+class HangingCoder(CoderAgent):
+    def __init__(self):
+        super().__init__(backend=HangingBackend())
 
 
 def test_promote_walks_to_production(sample_graph_path, workspace):
@@ -49,22 +65,9 @@ def test_promote_walks_to_production(sample_graph_path, workspace):
 
 def test_promote_refused_when_task_blocked(tmp_path, monkeypatch):
     """A BLOCKED (not DONE) task must refuse promotion with no mutation."""
-    import time as _time
-
-    from factory.agents import AgentInput, AgentRegistry, CoderAgent, ReviewerAgent
+    from factory.agents import AgentRegistry, ReviewerAgent
     from factory.orchestrator import FactoryOrchestrator
     from factory.schemas.task_graph import TaskDef, TaskGraph
-
-    class HangingBackend:
-        name = "hang"
-
-        def run(self, task: AgentInput) -> None:  # pragma: no cover
-            _time.sleep(60)
-            raise AssertionError("unreachable")
-
-    class HangingCoder(CoderAgent):
-        def __init__(self):
-            super().__init__(backend=HangingBackend())
 
     class _FakeSettings:
         verify_gates = ("syntax",)

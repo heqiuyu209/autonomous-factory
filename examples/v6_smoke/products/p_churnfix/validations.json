@@ -1,0 +1,18 @@
+﻿{
+    "conversion_gate":  null,
+    "hypothesis":  "h",
+    "conversion_threshold":  0.03,
+    "opportunity_id":  "opp_1",
+    "evidence_gate":  "PASS",
+    "confidence":  0.7,
+    "reasons":  [
+
+                ],
+    "objections":  [
+
+                   ],
+    "decision":  "BUILD",
+    "conversion_rate":  null,
+    "evidence_threshold":  0.4,
+    "evidence_score":  0.61
+}

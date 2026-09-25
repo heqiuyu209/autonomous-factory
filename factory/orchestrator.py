@@ -17,13 +17,14 @@ from __future__ import annotations
 import shutil
 import time
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 
 from .agents import AgentInput, AgentRegistry, CoderAgent, RecipeBackend
 from .budget import BudgetExceeded, BudgetTracker
 from .config import settings
 from .db import init_db, session_scope
-from .execution import CoderTimeout, run_with_timeout
+from .execution import CoderTimeout, run_with_timeout_isolated
 from .models import (
     BudgetAccount,
     BudgetLedger,
@@ -343,8 +344,8 @@ class FactoryOrchestrator:
                 account_id = self._ensure_budget_account(session, project_id)
                 attempt_start = time.monotonic()
                 try:
-                    last_output = run_with_timeout(
-                        lambda: coder.run(inp),
+                    last_output = run_with_timeout_isolated(
+                        partial(coder.run, inp),
                         min(
                             budget.remaining_runtime_s,
                             float(settings.attempt_timeout_s),

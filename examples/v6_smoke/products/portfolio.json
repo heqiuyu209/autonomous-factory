@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-09-24T16:16:39+00:00",
+  "products": [
+    {
+      "product_id": "p_waitlist",
+      "action": "KILL",
+      "priority": 9,
+      "budget_weight": 0.0,
+      "sources": [
+        "deployments.json"
+      ],
+      "reasons": [
+        "release rolled back: canary CANARY_1 regression: error=0.120"
+      ]
+    },
+    {
+      "product_id": "p_meetily",
+      "action": "SCALE",
+      "priority": 8,
+      "budget_weight": 0.6,
+      "sources": [
+        "analytics.json"
+      ],
+      "reasons": [
+        "analytics recommended Scale: double down on distribution"
+      ]
+    },
+    {
+      "product_id": "p_churnfix",
+      "action": "BUILD",
+      "priority": 7,
+      "budget_weight": 0.4,
+      "sources": [
+        "validations.json"
+      ],
+      "reasons": [
+        "validation gate said BUILD -> start build"
+      ]
+    }
+  ],
+  "summary": "3 product(s) in portfolio; 1 get follow-on investment; 1 killed (budget freed)",
+  "allocation": {
+    "p_waitlist": 0.0,
+    "p_meetily": 0.6,
+    "p_churnfix": 0.4
+  }
+}

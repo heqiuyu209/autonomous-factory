@@ -9,10 +9,12 @@ daemon that blocks process exit.
 from __future__ import annotations
 
 import time
+from functools import partial
 
 import pytest
 
-from factory.execution import CoderTimeout, run_with_timeout
+from factory.agents import AgentInput, CoderAgent
+from factory.execution import CoderTimeout, run_with_timeout, run_with_timeout_isolated
 
 
 def test_run_with_timeout_returns_value():
@@ -39,25 +41,64 @@ def test_run_with_timeout_zero_is_immediate():
         run_with_timeout(lambda: 1, 0)
 
 
+# --- process-isolated guard (hard kill) -------------------------------
+
+
+def _iso_add(a: int, b: int) -> int:
+    return a + b
+
+
+def _iso_boom() -> int:
+    raise ValueError("boom-iso")
+
+
+def _iso_slow() -> str:
+    time.sleep(60)
+    return "late"
+
+
+def test_isolated_returns_value():
+    assert run_with_timeout_isolated(partial(_iso_add, 40, 2), 5.0) == 42
+
+
+def test_isolated_reraises_worker_exception():
+    with pytest.raises(ValueError, match="boom-iso"):
+        run_with_timeout_isolated(_iso_boom, 5.0)
+
+
+def test_isolated_hits_ceiling_and_kills():
+    t0 = time.monotonic()
+    with pytest.raises(CoderTimeout):
+        run_with_timeout_isolated(_iso_slow, 0.5)
+    assert time.monotonic() - t0 < 3  # reclaimed fast: the worker is killed
+    # the worker must be gone, not lurking: a second call still works
+    assert run_with_timeout_isolated(partial(_iso_add, 1, 2), 5.0) == 3
+
+
+def test_isolated_zero_is_immediate():
+    with pytest.raises(CoderTimeout):
+        run_with_timeout_isolated(partial(_iso_add, 1, 2), 0)
+
+
+class HangingBackend:
+    name = "hang"
+
+    def run(self, task: "AgentInput") -> None:  # pragma: no cover
+        time.sleep(60)
+        raise AssertionError("unreachable")
+
+
+class HangingCoder(CoderAgent):
+    def __init__(self):
+        super().__init__(backend=HangingBackend())
+
+
 def test_hung_coder_blocks_task(tmp_path, monkeypatch):
     """Integration: a coder that hangs past its attempt ceiling must BLOCK
     the task (not hang the build) and leave an auditable timeout in DB."""
-    import time as _time
-
-    from factory.agents import AgentInput, AgentRegistry, CoderAgent, ReviewerAgent
+    from factory.agents import AgentRegistry, ReviewerAgent
     from factory.orchestrator import FactoryOrchestrator
     from factory.schemas.task_graph import TaskDef, TaskGraph
-
-    class HangingBackend:
-        name = "hang"
-
-        def run(self, task: AgentInput) -> None:  # pragma: no cover
-            _time.sleep(60)
-            raise AssertionError("unreachable")
-
-    class HangingCoder(CoderAgent):
-        def __init__(self):
-            super().__init__(backend=HangingBackend())
 
     class _FakeSettings:
         verify_gates = ("syntax",)
